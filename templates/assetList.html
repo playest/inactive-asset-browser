@@ -1,3 +1,5 @@
-<p>
-    There should be a list of assets here.
-</p>
+<ul class="asset-list">
+    {{#each assets}}
+      <li>{{this.name}}</li>
+    {{/each}}
+</ul>

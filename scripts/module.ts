@@ -1,9 +1,17 @@
+import { SceneDataSchema } from "@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/data/data.mjs/sceneData";
+
 // Set this variables as their initilized state, see doc of LenientGlobalVariableTypes for an explanation
-interface LenientGlobalVariableTypes {
-    game: never;
-    socket: never;
-    ui: never;
-    canvas: never;
+declare global {
+    interface LenientGlobalVariableTypes {
+        game: never;
+        socket: never;
+        ui: never;
+        canvas: never;
+    }
+}
+
+interface Asset {
+
 }
 
 const MODULE_NAME = "inactive-asset-browser";
@@ -20,29 +28,25 @@ function isOfInterest(moduleName: string): boolean {
     return ["czepeku-maps-megapack"].includes(moduleName);
 }
 
+const cache: Asset[] = [];
+
 async function showMainWindow() {
-    const rendered_html = await renderTemplate(joinPath(PATH_TO_ROOT_OF_MODULE, "templates/assetList.html"), {});
+    const rendered_html = await renderTemplate(joinPath(PATH_TO_ROOT_OF_MODULE, "templates/assetList.html"), { assets: cache });
     let d = new Dialog({
-        title: "MyDialogTitle",
+        title: "List of Assets",
         content: rendered_html,
         buttons: {
-            toggle: {
-                icon: '<i class="fas fa-check"></i>',
-                label: "Okay",
-                callback: () => console.log("Okay")
-            },
         },
         default: "toggle",
         close: html => {
             console.log(html);
         },
-      });
+    });
     d.render(true);
 }
 
 Hooks.once('ready', async function() {
     console.log("inactive-asset-browser started");
-    let i = 0;
     for(const [name, module] of game.modules.entries()) {
         if(isOfInterest(name)) {
             for(const pack of module.packs.slice(0, 3)) { // TODO this slice is just for quick testing
@@ -56,18 +60,14 @@ Hooks.once('ready', async function() {
                     console.log("lines", lines.length);
                     for(const line of lines) {
                         if(line !== "") {
-                            const o = JSON.parse(line);
+                            const o = JSON.parse(line) as SceneDataSchema;
                             console.log(o);
+                            cache.push(o);
                         }
                     }
                 }
             }
         }
-        // TODO this is just for quick testing
-        if(i > 10) {
-            break;
-        }
-        i++;
     }
     showMainWindow();
 });
