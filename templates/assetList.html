@@ -1,5 +1,8 @@
-<ul class="asset-list">
+<div class="inactive-asset-browser asset-list">
     {{#each assets}}
-      <li>{{this.name}}</li>
+    <div class="asset">
+        <div class="name">{{this.name}}</div>
+        <img src="{{this.thumb}}" />
+    </div>
     {{/each}}
-</ul>
+</div>

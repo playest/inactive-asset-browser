@@ -1,4 +1,4 @@
-import { SceneDataSchema } from "@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/data/data.mjs/sceneData";
+import { SceneDataProperties, SceneDataSchema } from "@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/data/data.mjs/sceneData";
 
 // Set this variables as their initilized state, see doc of LenientGlobalVariableTypes for an explanation
 declare global {
@@ -11,7 +11,9 @@ declare global {
 }
 
 interface Asset {
-
+    name: string,
+    img: string | null | undefined, // we should probably exclude those without image
+    thumb: string | null | undefined,
 }
 
 const MODULE_NAME = "inactive-asset-browser";
@@ -41,7 +43,7 @@ async function showMainWindow() {
         close: html => {
             console.log(html);
         },
-    });
+    }, { width: 500, resizable: true });
     d.render(true);
 }
 
@@ -60,9 +62,13 @@ Hooks.once('ready', async function() {
                     console.log("lines", lines.length);
                     for(const line of lines) {
                         if(line !== "") {
-                            const o = JSON.parse(line) as SceneDataSchema;
-                            console.log(o);
-                            cache.push(o);
+                            const o = JSON.parse(line) as SceneDataProperties;
+                            console.log(o.img);
+                            cache.push({
+                                name: o.name,
+                                img: o.img,
+                                thumb: o.thumb
+                            });
                         }
                     }
                 }

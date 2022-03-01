@@ -1,0 +1,10 @@
+.inactive-asset-browser.asset-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 10px;
+    grid-auto-rows: minmax(100px, auto);
+}
+
+.inactive-asset-browser .asset {
+    align-self: end;
+}
