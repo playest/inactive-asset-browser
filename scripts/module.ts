@@ -26,7 +26,7 @@ Hooks.once('ready', async function() {
                     console.log(url);
                     const r = await fetch(url);
                     const text = await r.text();
-                    const lines = text.split("\n");
+                    const lines = text.split(/\r?\n/);
                     console.log("lines", lines.length);
                     for(const line of lines) {
                         if(line !== "") {
