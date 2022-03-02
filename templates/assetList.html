@@ -4,11 +4,11 @@
     <div class="modules">
         {{#each assetCollection as |module moduleName|}}
             {{#unless module.onePack}}
-                <h1 data-module-name="{{moduleName}}" title="{{moduleName}}">{{module.title}}</h1>
+                <h1 data-module-name="{{moduleName}}" title="{{moduleName}}"><button type="button" title="refresh module content" class="refresh-module"><i class="fas fa-sync"></i></button> {{module.title}}</h1>
             {{/unless}}
             {{#each module.packs as |pack packName|}}
                 {{#if module.onePack}}
-                    <h1 data-module-name="{{moduleName}}" data-pack-name="{{packName}}" title="{{moduleName}}.{{packName}}">{{module.title}} / {{pack.title}}</h1>
+                    <h1 data-module-name="{{moduleName}}" data-pack-name="{{packName}}" title="{{moduleName}}.{{packName}}"><button type="button" title="refresh module content" class="refresh-module"><i class="fas fa-sync"></i></button> {{module.title}} / {{pack.title}}</h1>
                 {{else}}
                     <h2 data-module-name="{{moduleName}}" data-pack-name="{{packName}}" title="{{packName}}">{{pack.title}}</h2>
                 {{/if}}

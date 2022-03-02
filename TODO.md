@@ -4,3 +4,4 @@
 - add keyword to asset
 - add description to asset
 - favourite asset
+- filter out modules that don't contain scenes

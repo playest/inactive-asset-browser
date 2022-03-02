@@ -67,8 +67,36 @@ class AppDataClass implements AppData {
         module.onePack = Object.keys(module.packs).length == 1;
     }
 
+    addShalowModule(moduleId: string) {
+        let module = this.assetCollection[moduleId];
+        if(module === undefined) {
+            module = { title: game.modules.get(moduleId)!.data.name, onePack: false, packs: {} };
+            this.assetCollection[moduleId] = module;
+        }
+    }
+
+    async reindexModule(moduleId: string) {
+        const module = game.modules.get(moduleId);
+        if(module === undefined) {
+            throw new Error("Module not found: " + moduleId);
+        }
+
+        this.assetCollection[moduleId].packs = {};
+        for(const pack of await packsFromModule(module)) {
+            for(const scene of scenesFromPackContent(pack.content)) {
+                this.addScene(module.id, module.data.title, pack.name, pack.title, scene);
+            }
+        }
+    }
+
     clearCache() {
         this.assetCollection = {};
+    }
+}
+
+function assert(cond: boolean): asserts cond {
+    if(cond === false) {
+        throw new Error("Value is null or undefined");
     }
 }
 
@@ -90,8 +118,13 @@ Hooks.once('init', async function() {
 });
 
 class App extends FormApplication<FormApplicationOptions, AppData, {}> {
-    constructor(private data: AppData) {
-        super({}, { resizable: true, scrollY: [".module-list"], width: 500, height: Math.round(window.innerHeight / 2) });
+    constructor(private data: AppDataClass) {
+        super({}, {
+            resizable: true,
+            scrollY: [".modules"],
+            width: 500,
+            height: Math.round(window.innerHeight / 2)
+        });
         log("creating window for", MODULE_NAME);
     }
 
@@ -115,7 +148,7 @@ class App extends FormApplication<FormApplicationOptions, AppData, {}> {
         win.querySelector(".re-index")!.addEventListener("click", async () => {
             log("Re-Index!!!");
             appData.clearCache();
-            await indexAssets();
+            await indexAssets(true);
             this.render();
         });
 
@@ -125,15 +158,22 @@ class App extends FormApplication<FormApplicationOptions, AppData, {}> {
             log("asset click", e, asset);
             win.querySelector(".panel .asset-view")!.innerHTML = `${asset.dataset.moduleName}.${asset.dataset.packName}/${asset.dataset.assetName}`
         }));
+
+        win.querySelectorAll<HTMLElement>(".refresh-module")!.forEach(btn => btn.addEventListener("click", async () => {
+            const h1 = btn.closest("h1")!;
+            log("refresh", h1);
+            await this.data.reindexModule(h1.dataset.moduleName!);
+            this.render();
+        }));
     }
 
-    async _updateObject(event: Event, formData: object) {
+    async _updateObject(event: Event, formData: unknown) {
         log("_updateObject", formData);
     }
 }
 
 class ModuleSelector extends FormApplication<FormApplicationOptions, {existingModules: {[moduleName: string]: {module: Game.ModuleData<ModuleData>, selected: boolean}}}, AppData["selectedModules"]> {
-    constructor(private existingModules: Game.ModuleData<ModuleData>[], private selectedModules: string[], private appData: AppDataClass) {
+    constructor(private existingModules: Game.ModuleData<ModuleData>[], private selectedModules: string[], private appData: AppDataClass, private app: App) {
         super([], { resizable: true, scrollY: [".module-list"], width: 500, height: Math.round(window.innerHeight / 2) });
         log("creating ModuleSelector window for", MODULE_NAME);
     }
@@ -233,15 +273,24 @@ class ModuleSelector extends FormApplication<FormApplicationOptions, {existingMo
     async _updateObject(event: Event, formData: {[moduleName: string]: boolean}) {
         log("_updateObject", formData);
         this.appData.selectedModules = Object.entries(formData).filter(([k, v]) => v === true).map(([k, v]) => k);
+        Object.entries(formData).forEach(([moduleName, selected]) => {
+            if(selected === true) {
+                this.appData.addShalowModule(moduleName);
+            }
+        });
+        this.app.render();
     }
 }
 
+let app: App | null = null;
 function showMainWindow() {
-    new App(appData).render(true);
+    app = new App(appData);
+    app.render(true);
 }
 
 function showModuleSelectorWindow() {
-    new ModuleSelector(Array.from(game.modules.values()), appData.selectedModules, appData).render(true);
+    assert(app != null);
+    new ModuleSelector(Array.from(game.modules.values()), appData.selectedModules, appData, app).render(true);
 }
 
 function scenesFromPackContent(content: string) {
@@ -281,28 +330,33 @@ async function packsFromModule(module: Game.ModuleData<ModuleData>) {
     return packContents;
 }
 
-async function indexAssets() {
+async function indexAssets(shalow: boolean) {
     for(const [name, module] of game.modules.entries()) {
         //log("module", module);
         if(appData.selectedModules.includes(name)) {
             let packCount = 0;
-            for(const pack of await packsFromModule(module)) {
-                for(const scene of scenesFromPackContent(pack.content)) {
-                    appData.addScene(module.id, module.data.title, pack.name, pack.title, scene);
+            if(!shalow) {
+                for(const pack of await packsFromModule(module)) {
+                    for(const scene of scenesFromPackContent(pack.content)) {
+                        appData.addScene(module.id, module.data.title, pack.name, pack.title, scene);
+                    }
                 }
+            }
+            else {
+                appData.addShalowModule(module.id);
             }
         }
         else {
             //log("ignore module", name);
         }
     }
-    console.log("appData", appData);
+    log("indexAssets.appData", appData);
 }
 
 Hooks.once('ready', async function() {
-    log("inactive-asset-browser started");
-    await indexAssets();
-    log("assetCollection", appData.assetCollection);
+    log("started");
+    await indexAssets(true);
+    log("appData ready", appData);
     showMainWindow();
     showModuleSelectorWindow();
 });

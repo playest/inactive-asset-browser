@@ -7,6 +7,16 @@
         height: 100%;
         padding-right: $spacing;
         overflow-y: scroll;
+        h1 {
+            display: flex;
+            .refresh-module {
+                align-self: center;
+                flex: 0; // this button should have a fixed size
+                i {
+                    margin-right: 1px;
+                }
+            }
+        }
     }
     .panel {
         width: 200px;
