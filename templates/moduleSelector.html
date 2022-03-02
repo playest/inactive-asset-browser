@@ -1,13 +1,13 @@
 <form class="inactive-asset-browser module-selector flexcol">
     <header class="flexrow controls">
-        <button type="submit"><i class="fas fa-sort-amount-down"></i> Selected on top</button>
-        <button type="submit"><i class="fas fa-sort-alpha-down"></i></button>
-        <button type="submit"><i class="fas fa-sort-alpha-down-alt"></i></button>
+        <button type="button" class="sort-selected"><i class="fas fa-sort-amount-down"></i> Selected on top</button>
+        <button type="button" class="sort-alpha"><i class="fas fa-sort-alpha-down"></i></button>
+        <button type="button" class="sort-alpha-reverse"><i class="fas fa-sort-alpha-down-alt"></i></button>
     </header>
     <section class="module-list">
         <ul>
         {{#each existingModules as |module moduleName|}}
-            <li><input name="{{module.module.id}}" type="checkbox" {{#if module.selected}}checked{{/if}} />{{module.module.data.title}}</li>
+            <li><input name="{{module.module.id}}" type="checkbox" {{#if module.selected}}checked{{/if}} /> <span class="title">{{module.module.data.title}}</span></li>
         {{/each}}
         </ul>
     </section>

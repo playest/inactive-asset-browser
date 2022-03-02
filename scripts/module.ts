@@ -81,6 +81,10 @@ function joinPath(...paths: string[]) {
     return paths.join("/");
 }
 
+function log(message: unknown, ...otherMessages: unknown[]) {
+    console.log(MODULE_NAME, "|", message, ...otherMessages);
+}
+
 Hooks.once('init', async function() {
 
 });
@@ -92,7 +96,7 @@ function isOfInterest(moduleName: string): boolean {
 class App extends FormApplication<FormApplicationOptions, AppData, {}> {
     constructor(private data: AppData) {
         super({}, { resizable: true, scrollY: [".module-list"], width: 500, height: Math.round(window.innerHeight / 2) });
-        console.log("creating window for", MODULE_NAME);
+        log("creating window for", MODULE_NAME);
     }
 
     static get defaultOptions() {
@@ -113,7 +117,7 @@ class App extends FormApplication<FormApplicationOptions, AppData, {}> {
         super.activateListeners(html);
         const win = html[0];
         win.querySelector(".re-index")!.addEventListener("click", async () => {
-            console.log("Re-Index!!!");
+            log("Re-Index!!!");
             appData.clearCache();
             await indexAssets();
             this.render();
@@ -122,20 +126,20 @@ class App extends FormApplication<FormApplicationOptions, AppData, {}> {
         win.querySelector(".select-modules")!.addEventListener("click", () => showModuleSelectorWindow());
 
         win.querySelectorAll<HTMLElement>(".asset").forEach(asset => asset.addEventListener("click", async (e) => {
-            console.log("asset click", e, asset);
+            log("asset click", e, asset);
             win.querySelector(".panel .asset-view")!.innerHTML = `${asset.dataset.moduleName}.${asset.dataset.packName}/${asset.dataset.assetName}`
         }));
     }
 
     async _updateObject(event: Event, formData: object) {
-        console.log("_updateObject", formData);
+        log("_updateObject", formData);
     }
 }
 
 class ModuleSelector extends FormApplication<FormApplicationOptions, {existingModules: {[moduleName: string]: {module: Game.ModuleData<ModuleData>, selected: boolean}}}, AppData["selectedModules"]> {
     constructor(private existingModules: Game.ModuleData<ModuleData>[], private selectedModules: string[]) {
         super([], { resizable: true, scrollY: [".module-list"], width: 500, height: Math.round(window.innerHeight / 2) });
-        console.log("creating ModuleSelector window for", MODULE_NAME);
+        log("creating ModuleSelector window for", MODULE_NAME);
     }
 
     static get defaultOptions() {
@@ -150,7 +154,8 @@ class ModuleSelector extends FormApplication<FormApplicationOptions, {existingMo
 
     getData() {
         const o: {[moduleName: string]: {module: Game.ModuleData<ModuleData>, selected: boolean}} = {};
-        for(const m of this.existingModules) {
+        const sorted = Array.from(this.existingModules).sort((a, b) => a.data.title.localeCompare( b.data.title));
+        for(const m of sorted) {
             o[m.id] = {module: m, selected: this.selectedModules.includes(m.id)};
         }
         return {existingModules: o};
@@ -158,10 +163,47 @@ class ModuleSelector extends FormApplication<FormApplicationOptions, {existingMo
 
     activateListeners(html: JQuery<HTMLElement>) {
         super.activateListeners(html);
+        function compareByTitle(a: Element, b: Element) {
+            const titleA = a.querySelector(".title")!.innerHTML;
+            const titleB = b.querySelector(".title")!.innerHTML;
+            return titleA.localeCompare(titleB);
+        }
+        html[0].querySelector<HTMLElement>(".sort-selected")!.addEventListener("click", function() {
+            log("sort selected");
+            const moduleList = this.closest("form")!.querySelector<HTMLElement>(".module-list ul")!;
+            Array.from(moduleList.children).sort((a, b) => {
+                const inputA = a.querySelector<HTMLInputElement>("input")!;
+                const inputB = b.querySelector<HTMLInputElement>("input")!;
+                //log("compare", inputA, inputA.checked, inputB, inputB.checked);
+                if(inputA.checked && !inputB.checked) {
+                    //log("    ", 1);
+                    return -1;
+                }
+                else if(!inputA.checked && inputB.checked) {
+                    //log("    ", -1);
+                    return 1;
+                }
+                else {
+                    return compareByTitle(a, b);
+                }
+            }).forEach(node => moduleList.appendChild(node));
+        });
+
+        html[0].querySelector<HTMLElement>(".sort-alpha")!.addEventListener("click", function() {
+            log("sort alpha");
+            const moduleList = this.closest("form")!.querySelector<HTMLElement>(".module-list ul")!;
+            Array.from(moduleList.children).sort(compareByTitle).forEach(node => moduleList.appendChild(node));
+        });
+
+        html[0].querySelector<HTMLElement>(".sort-alpha-reverse")!.addEventListener("click", function() {
+            log("sort alpha reverse");
+            const moduleList = this.closest("form")!.querySelector<HTMLElement>(".module-list ul")!;
+            Array.from(moduleList.children).sort((a, b) => -1 * compareByTitle(a, b)).forEach(node => moduleList.appendChild(node));
+        });
     }
 
     async _updateObject(event: Event, formData: object) {
-        console.log("_updateObject", formData);
+        log("_updateObject", formData);
     }
 }
 
@@ -175,7 +217,7 @@ function showModuleSelectorWindow() {
 
 async function indexAssets() {
     for(const [name, module] of game.modules.entries()) {
-        //console.log("module", module);
+        //log("module", module);
         if(isOfInterest(name)) {
             let packCount = 0;
             for(const pack of module.packs) {
@@ -205,15 +247,15 @@ async function indexAssets() {
             }
         }
         else {
-            //console.log("ignore module", name);
+            //log("ignore module", name);
         }
     }
 }
 
 Hooks.once('ready', async function() {
-    console.log("inactive-asset-browser started");
+    log("inactive-asset-browser started");
     await indexAssets();
-    console.log("assetCollection", appData.assetCollection);
+    log("assetCollection", appData.assetCollection);
     showMainWindow();
     showModuleSelectorWindow();
 });
