@@ -8,11 +8,27 @@
         {{#if module.onePack}}
             {{#each module.packs as |pack packName|}}
                 <h1 data-module-name="{{moduleName}}" data-pack-name="{{packName}}" title="{{moduleName}}.{{packName}}">{{module.title}} / {{pack.title}}</h1>
+                <div class="asset-list">
+                    {{#each pack.assets}}
+                    <div class="asset">
+                        <div class="name">{{this.name}}</div>
+                        <img src="{{this.thumb}}" />
+                    </div>
+                    {{/each}}
+                </div>
             {{/each}}
         {{else}}
             <h1 data-module-name="{{moduleName}}" title="{{moduleName}}">{{module.title}}</h1>
             {{#each module.packs as |pack packName|}}
                 <h2 data-module-name="{{moduleName}}" data-pack-name="{{packName}}" title="{{packName}}">{{pack.title}}</h2>
+                <div class="asset-list">
+                    {{#each pack.assets}}
+                    <div class="asset">
+                        <div class="name">{{this.name}}</div>
+                        <img src="{{this.thumb}}" />
+                    </div>
+                    {{/each}}
+                </div>
             {{/each}}
         {{/if}}
         {{/each}}
