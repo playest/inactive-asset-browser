@@ -10,7 +10,7 @@
     <section class="module-list">
         <ul>
         {{#each existingModules as |module moduleName|}}
-            <li><input name="{{module.module.id}}" type="checkbox" {{#if module.selected}}checked{{/if}} /> <span class="title">{{module.module.data.title}}</span></li>
+            <li><label><input name="{{module.module.id}}" type="checkbox" {{#if module.selected}}checked{{/if}} /> <span class="title">{{module.module.data.title}}</span></label></li>
         {{/each}}
         </ul>
     </section>

@@ -244,34 +244,51 @@ function showModuleSelectorWindow() {
     new ModuleSelector(Array.from(game.modules.values()), appData.selectedModules, appData).render(true);
 }
 
+function scenesFromPackContent(content: string) {
+    const scenes: SceneDataProperties[] = [];
+    const lines = content.split(/\r?\n/);
+    let assetCount = 0;
+    for(const line of lines) {
+        if(line !== "") {
+            if(assetCount >= 5) { // TODO remove before putting into prod, this is just for faster testing
+                break;
+            }
+            const o = JSON.parse(line) as SceneDataProperties;
+            if(o.name !== '#[CF_tempEntity]') {
+                scenes.push(o);
+                assetCount++;
+            }
+        }
+    }
+    return scenes;
+}
+
+async function packsFromModule(module: Game.ModuleData<ModuleData>) {
+    const packContents: {content: string, name: string, title: string}[] = [];
+    let packCount = 0;
+    for(const pack of module.packs) {
+        if(packCount > 3) { // TODO remove before putting into prod, this is just for faster testing
+            break;
+        }
+        if(pack.type == "Scene") {
+            const url = "modules/" + module.id + "/" + pack.path;
+            const r = await fetch(url);
+            const text = await r.text();
+            packContents.push({content: text, name: pack.name, title: pack.label});
+            packCount++;
+        }
+    }
+    return packContents;
+}
+
 async function indexAssets() {
     for(const [name, module] of game.modules.entries()) {
         //log("module", module);
         if(appData.selectedModules.includes(name)) {
             let packCount = 0;
-            for(const pack of module.packs) {
-                if(packCount > 3) { // TODO remove before putting into prod, this is just for faster testing
-                    break;
-                }
-                if(pack.type == "Scene") {
-                    const url = "modules/" + module.id + "/" + pack.path;
-                    const r = await fetch(url);
-                    const text = await r.text();
-                    const lines = text.split(/\r?\n/);
-                    let assetCount = 0;
-                    for(const line of lines) {
-                        if(line !== "") {
-                            if(assetCount >= 5) { // TODO remove before putting into prod, this is just for faster testing
-                                break;
-                            }
-                            const o = JSON.parse(line) as SceneDataProperties;
-                            if(o.name !== '#[CF_tempEntity]') {
-                                appData.addScene(module.id, module.data.title, pack.name, pack.label, o);
-                                assetCount++;
-                            }
-                        }
-                    }
-                    packCount++;
+            for(const pack of await packsFromModule(module)) {
+                for(const scene of scenesFromPackContent(pack.content)) {
+                    appData.addScene(module.id, module.data.title, pack.name, pack.title, scene);
                 }
             }
         }
