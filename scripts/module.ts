@@ -1,4 +1,4 @@
-import { SceneDataProperties, SceneDataSchema } from "@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/data/data.mjs/sceneData";
+import { SceneDataProperties } from "@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/data/data.mjs/sceneData";
 
 // Set this variables as their initilized state, see doc of LenientGlobalVariableTypes for an explanation
 declare global {
@@ -36,13 +36,17 @@ function isOfInterest(moduleName: string): boolean {
 
 class App extends FormApplication<FormApplicationOptions, AppData, {}> {
     constructor(private data: AppData) {
-        super({}, {resizable: true});
+        super({}, { resizable: true, width: 500, height: Math.round(window.innerHeight / 2) });
         console.log("creating window for", MODULE_NAME);
+    }
+
+    protected _onSubmit(event: Event, { updateData, preventClose, preventRender }: FormApplication.OnSubmitOptions): Promise<Partial<Record<string, unknown>>> {
+        return new Promise(() => { });
     }
 
     static get defaultOptions() {
         return mergeObject(super.defaultOptions, {
-            classes: ['form'],
+            classes: [],
             popOut: true,
             template: joinPath(PATH_TO_ROOT_OF_MODULE, "templates/assetList.html"),
             id: 'asset-list',
@@ -67,7 +71,7 @@ class App extends FormApplication<FormApplicationOptions, AppData, {}> {
 const cache: Asset[] = [];
 
 async function showMainWindow() {
-    new App({assets: cache}).render(true);
+    new App({ assets: cache }).render(true);
 }
 
 Hooks.once('ready', async function() {

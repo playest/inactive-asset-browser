@@ -1,9 +1,13 @@
-<button class="re-index">Re-Index</button>
-<div class="inactive-asset-browser asset-list">
-    {{#each assets}}
-    <div class="asset">
-        <div class="name">{{this.name}}</div>
-        <img src="{{this.thumb}}" />
+<div class="inactive-asset-browser">
+    <!-- A FormApplication needs a form to avoid errors, so we put one but we hide it -->
+    <form style="display: none;"></form>
+    <button class="re-index">Re-Index</button>
+    <div class="asset-list">
+        {{#each assets}}
+        <div class="asset">
+            <div class="name">{{this.name}}</div>
+            <img src="{{this.thumb}}" />
+        </div>
+        {{/each}}
     </div>
-    {{/each}}
 </div>
