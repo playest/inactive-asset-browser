@@ -17,6 +17,7 @@ interface Asset {
 }
 
 interface AppData {
+    selectedModules: string[],
     assetCollection: {
         [moduleName: string]: {
             title: string,
@@ -30,6 +31,46 @@ interface AppData {
         }
     }
 }
+
+class AppDataClass implements AppData {
+    selectedModules: string[] = [];
+    assetCollection: {
+        [moduleName: string]: {
+            title: string;
+            onePack: boolean;
+            packs: {
+                [packName: string]: {
+                    title: string;
+                    assets: Asset[];
+                };
+            };
+        };
+    } = {};
+
+    addScene(moduleId: string, moduleTitle: string, packName: string, packTitle: string, asset: SceneDataProperties) {
+        let module = this.assetCollection[moduleId];
+        if(module === undefined) {
+            module = { title: moduleTitle, onePack: false, packs: {} };
+            this.assetCollection[moduleId] = module;
+        }
+        let packInModule = module.packs[packName];
+        if(packInModule === undefined) {
+            packInModule = { title: packTitle, assets: [] };
+            module.packs[packName] = packInModule;
+        }
+        packInModule.assets.push({
+            name: asset.name,
+            img: asset.img,
+            thumb: asset.thumb
+        });
+    }
+
+    clearCache() {
+        this.assetCollection = {};
+    }
+}
+
+const appData = new AppDataClass();
 
 const MODULE_NAME = "inactive-asset-browser";
 const PATH_TO_ROOT_OF_MODULE = `modules/${MODULE_NAME}/`;
@@ -71,7 +112,7 @@ class App extends FormApplication<FormApplicationOptions, AppData, {}> {
         const win = html[0];
         win.querySelector("button.re-index")!.addEventListener("click", async () => {
             console.log("Re-Index!!!");
-            assetCollection = {};
+            appData.clearCache();
             await indexAssets();
             this.render();
         });
@@ -87,33 +128,20 @@ class App extends FormApplication<FormApplicationOptions, AppData, {}> {
     }
 }
 
-let assetCollection: AppData["assetCollection"] = {};
-
 async function showMainWindow() {
-    new App({ assetCollection }).render(true);
+    new App(appData).render(true);
 }
 
 async function indexAssets() {
     for(const [name, module] of game.modules.entries()) {
         console.log("module", module);
         if(isOfInterest(name)) {
-            let packsInModule = assetCollection[module.id];
-            if(packsInModule === undefined) {
-                packsInModule = {title: module.data.title, packs: {}, onePack: false}; // onePack set to false for now
-                assetCollection[module.id] = packsInModule;
-            }
             let packCount = 0;
             for(const pack of module.packs) {
                 if(packCount > 3) { // TODO remove before putting into prod, this is just for faster testing
                     break;
                 }
                 if(pack.type == "Scene") {
-                    console.log("pack", pack);
-                    let assetsInPack = packsInModule.packs[pack.name];
-                    if(assetsInPack === undefined) {
-                        assetsInPack = {title: pack.label, assets: []};
-                        packsInModule.packs[pack.name] = assetsInPack;
-                    }
                     const url = "modules/" + module.id + "/" + pack.path;
                     const r = await fetch(url);
                     const text = await r.text();
@@ -126,11 +154,7 @@ async function indexAssets() {
                             }
                             const o = JSON.parse(line) as SceneDataProperties;
                             if(o.name !== '#[CF_tempEntity]') {
-                                assetsInPack.assets.push({
-                                    name: o.name,
-                                    img: o.img,
-                                    thumb: o.thumb
-                                });
+                                appData.addScene(module.id, module.data.title, pack.name, pack.label, o);
                                 assetCount++;
                             }
                         }
@@ -138,7 +162,6 @@ async function indexAssets() {
                     packCount++;
                 }
             }
-            packsInModule.onePack = packCount == 1;
         }
         else {
             console.log("ignore module", name);
@@ -149,6 +172,6 @@ async function indexAssets() {
 Hooks.once('ready', async function() {
     console.log("inactive-asset-browser started");
     await indexAssets();
-    console.log("assetCollection", assetCollection);
+    console.log("assetCollection", appData.assetCollection);
     showMainWindow();
 });
