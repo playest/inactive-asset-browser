@@ -1,3 +1,20 @@
+.inactive-asset-browser {
+    display: flex;
+    height: 100%; // for overflow and scrolling to work
+    $spacing: 1em;
+    .module-list {
+        flex: 1;
+        height: 100%;
+        padding-right: $spacing;
+        overflow-y: scroll;
+    }
+    .panel {
+        width: 200px;
+        padding-left: $spacing;
+        border-left: 1px solid var(--color-border-light-primary);
+    }
+}
+
 .inactive-asset-browser .asset-list {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));

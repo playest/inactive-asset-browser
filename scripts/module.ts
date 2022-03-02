@@ -47,11 +47,9 @@ function isOfInterest(moduleName: string): boolean {
 
 class App extends FormApplication<FormApplicationOptions, AppData, {}> {
     constructor(private data: AppData) {
-        super({}, { resizable: true, width: 500, height: Math.round(window.innerHeight / 2) });
+        super({}, { resizable: true, scrollY: [".module-list"], width: 500, height: Math.round(window.innerHeight / 2) });
         console.log("creating window for", MODULE_NAME);
     }
-
-
 
     static get defaultOptions() {
         return mergeObject(super.defaultOptions, {

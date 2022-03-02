@@ -1,7 +1,6 @@
 <div class="inactive-asset-browser">
     <!-- A FormApplication needs a form to avoid errors, so we put one but we hide it -->
     <form style="display: none;"></form>
-    <button class="re-index">Re-Index</button>
     <div class="module-list">
         {{#each assetCollection as |module moduleName|}}
         {{log "module" module}}
@@ -32,6 +31,9 @@
             {{/each}}
         {{/if}}
         {{/each}}
+    </div>
+    <div class="panel">
+        <button class="re-index">Re-Index</button>
     </div>
 </div>
 </div>
