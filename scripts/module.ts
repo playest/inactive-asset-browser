@@ -202,6 +202,17 @@ class ModuleSelector extends FormApplication<FormApplicationOptions, {existingMo
         });
     }
 
+    protected _createSearchFilters(): SearchFilter[] {
+        return [new SearchFilter({contentSelector: ".module-list ul", inputSelector: ".filter", callback: function(event, typedText, rgx, parent) {
+            // TODO the type of the last parameter (parent) is wrong in the doc
+            for (let li of Array.from((parent as unknown as HTMLElement).children) as HTMLElement[]) {
+                const name = li.querySelector(".title")!.textContent!;
+                const match = rgx.test(SearchFilter.cleanQuery(name));
+                li.style.display = match ? "" : "none";
+            }
+        }})];
+    }
+
     async _updateObject(event: Event, formData: object) {
         log("_updateObject", formData);
     }
