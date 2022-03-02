@@ -6,12 +6,12 @@
         {{#each assetCollection as |module moduleName|}}
         {{log "module" module}}
         {{#if module.onePack}}
-            {{#each this.packs as |pack packName|}}
+            {{#each module.packs as |pack packName|}}
                 <h1 data-module-name="{{moduleName}}" data-pack-name="{{packName}}" title="{{moduleName}}.{{packName}}">{{module.title}} / {{pack.title}}</h1>
             {{/each}}
         {{else}}
             <h1 data-module-name="{{moduleName}}" title="{{moduleName}}">{{module.title}}</h1>
-            {{#each this.packs as |pack packName|}}
+            {{#each module.packs as |pack packName|}}
                 <h2 data-module-name="{{moduleName}}" data-pack-name="{{packName}}" title="{{packName}}">{{pack.title}}</h2>
             {{/each}}
         {{/if}}
