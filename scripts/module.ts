@@ -16,6 +16,10 @@ interface Asset {
     thumb: string | null | undefined,
 }
 
+interface AppData {
+    assets: Asset[]
+}
+
 const MODULE_NAME = "inactive-asset-browser";
 const PATH_TO_ROOT_OF_MODULE = `modules/${MODULE_NAME}/`;
 function joinPath(...paths: string[]) {
@@ -30,21 +34,40 @@ function isOfInterest(moduleName: string): boolean {
     return ["czepeku-maps-megapack"].includes(moduleName);
 }
 
+class App extends FormApplication<FormApplicationOptions, AppData, {}> {
+    constructor(private data: AppData) {
+        super({}, {resizable: true});
+        console.log("creating window for", MODULE_NAME);
+    }
+
+    static get defaultOptions() {
+        return mergeObject(super.defaultOptions, {
+            classes: ['form'],
+            popOut: true,
+            template: joinPath(PATH_TO_ROOT_OF_MODULE, "templates/assetList.html"),
+            id: 'asset-list',
+            title: 'List of Assets',
+        });
+    }
+
+    getData() {
+        // Send data to the template
+        return this.data;
+    }
+
+    activateListeners(html: JQuery<HTMLElement>) {
+        super.activateListeners(html);
+    }
+
+    async _updateObject(event: Event, formData: object) {
+        console.log(formData);
+    }
+}
+
 const cache: Asset[] = [];
 
 async function showMainWindow() {
-    const rendered_html = await renderTemplate(joinPath(PATH_TO_ROOT_OF_MODULE, "templates/assetList.html"), { assets: cache });
-    let d = new Dialog({
-        title: "List of Assets",
-        content: rendered_html,
-        buttons: {
-        },
-        default: "toggle",
-        close: html => {
-            console.log(html);
-        },
-    }, { width: 500, resizable: true });
-    d.render(true);
+    new App({assets: cache}).render(true);
 }
 
 Hooks.once('ready', async function() {
