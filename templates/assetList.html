@@ -4,15 +4,18 @@
     <button class="re-index">Re-Index</button>
     <div class="module-list">
         {{#each assetCollection}}
-        <h1>{{@key}}</h1>
-        <div class="asset-list">
-            {{#each this}}
-            <div class="asset">
-                <div class="name">{{this.name}}</div>
-                <img src="{{this.thumb}}" />
-            </div>
+        {{#if this.onePack}}
+            <h1>1 {{@key}} / {{this.title}}</h1>
+            {{#each this.packs}}
+                <h1>1 {{@key}} / {{this.title}}</h1>
             {{/each}}
-        </div>
+        {{else}}
+            <h1>{{@key}} / {{this.title}}</h1>
+            {{#each this.packs}}
+                <h2>{{@key}} / {{this.title}}</h2>
+            {{/each}}
+        {{/if}}
         {{/each}}
     </div>
+</div>
 </div>

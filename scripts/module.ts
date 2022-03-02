@@ -17,7 +17,18 @@ interface Asset {
 }
 
 interface AppData {
-    assetCollection: { [moduleName: string]: Asset[] }
+    assetCollection: {
+        [moduleName: string]: {
+            title: string,
+            onePack: boolean,
+            packs: {
+                [packName: string]: {
+                    title: string,
+                    assets: Asset[],
+                }
+            }
+        }
+    }
 }
 
 const MODULE_NAME = "inactive-asset-browser";
@@ -31,7 +42,7 @@ Hooks.once('init', async function() {
 });
 
 function isOfInterest(moduleName: string): boolean {
-    return ["mikwewa-maps-free", "milbys-maps-free"].includes(moduleName);
+    return ["mikwewa-maps-free", "milbys-maps-free", "tomcartos-maps-megapack"].includes(moduleName);
 }
 
 class App extends FormApplication<FormApplicationOptions, AppData, {}> {
@@ -81,10 +92,21 @@ async function showMainWindow() {
 
 async function indexAssets() {
     for(const [name, module] of game.modules.entries()) {
+        console.log("module", module);
         if(isOfInterest(name)) {
-            for(const pack of module.packs.slice(0, 3)) { // TODO this slice is just for quick testing
+            let packsInModule = assetCollection[module.id];
+            if(packsInModule === undefined) {
+                packsInModule = {title: module.data.title, packs: {}, onePack: Object.keys(module.packs).length == 1};
+                assetCollection[module.id] = packsInModule;
+            }
+            for(const pack of module.packs) { // TODO this slice is just for quick testing
                 if(pack.type == "Scene") {
-                    //console.log(pack.absPath);
+                    console.log("pack", pack);
+                    let assetsInPack = packsInModule.packs[pack.name];
+                    if(assetsInPack === undefined) {
+                        assetsInPack = {title: pack.label, assets: []};
+                        packsInModule.packs[pack.name] = assetsInPack;
+                    }
                     const url = "modules/" + module.id + "/" + pack.path;
                     console.log(url);
                     const r = await fetch(url);
@@ -95,13 +117,7 @@ async function indexAssets() {
                         if(line !== "") {
                             const o = JSON.parse(line) as SceneDataProperties;
                             if(o.name !== '#[CF_tempEntity]') {
-                                console.log(o.img);
-                                let assetsInModule = assetCollection[module.id];
-                                if(assetsInModule === undefined) {
-                                    assetsInModule = [];
-                                    assetCollection[module.id] = assetsInModule;
-                                }
-                                assetsInModule.push({
+                                assetsInPack.assets.push({
                                     name: o.name,
                                     img: o.img,
                                     thumb: o.thumb
