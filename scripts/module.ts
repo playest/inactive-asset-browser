@@ -40,10 +40,6 @@ class App extends FormApplication<FormApplicationOptions, AppData, {}> {
         console.log("creating window for", MODULE_NAME);
     }
 
-    protected _onSubmit(event: Event, { updateData, preventClose, preventRender }: FormApplication.OnSubmitOptions): Promise<Partial<Record<string, unknown>>> {
-        return new Promise(() => { });
-    }
-
     static get defaultOptions() {
         return mergeObject(super.defaultOptions, {
             classes: [],
