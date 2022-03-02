@@ -1,0 +1,18 @@
+<form class="inactive-asset-browser module-selector flexcol">
+    <header class="flexrow controls">
+        <button type="submit"><i class="fas fa-sort-amount-down"></i> Selected on top</button>
+        <button type="submit"><i class="fas fa-sort-alpha-down"></i></button>
+        <button type="submit"><i class="fas fa-sort-alpha-down-alt"></i></button>
+    </header>
+    <section class="module-list">
+        <ul>
+        {{#each existingModules as |module moduleName|}}
+            <li><input name="{{module.module.id}}" type="checkbox" {{#if module.selected}}checked{{/if}} />{{module.module.data.title}}</li>
+        {{/each}}
+        </ul>
+    </section>
+    <footer class="flexrow controls">
+        <button type="submit"><i class="far fa-save"></i> Save Changes</button>
+        <button type="reset" value="Reset"><i class="fas fa-undo"></i> Reset Defaults</button>
+    </footer>
+</form>

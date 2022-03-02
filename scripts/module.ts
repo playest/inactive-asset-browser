@@ -1,4 +1,5 @@
 import { SceneDataProperties } from "@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/data/data.mjs/sceneData";
+import { ModuleData } from "@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/packages.mjs/moduleData";
 
 // Set this variables as their initilized state, see doc of LenientGlobalVariableTypes for an explanation
 declare global {
@@ -63,6 +64,7 @@ class AppDataClass implements AppData {
             img: asset.img,
             thumb: asset.thumb
         });
+        module.onePack = Object.keys(module.packs).length == 1;
     }
 
     clearCache() {
@@ -71,6 +73,7 @@ class AppDataClass implements AppData {
 }
 
 const appData = new AppDataClass();
+appData.selectedModules = ["mikwewa-maps-free", "milbys-maps-free", "tomcartos-maps-megapack"];
 
 const MODULE_NAME = "inactive-asset-browser";
 const PATH_TO_ROOT_OF_MODULE = `modules/${MODULE_NAME}/`;
@@ -103,19 +106,20 @@ class App extends FormApplication<FormApplicationOptions, AppData, {}> {
     }
 
     getData() {
-        // Send data to the template
         return this.data;
     }
 
     activateListeners(html: JQuery<HTMLElement>) {
         super.activateListeners(html);
         const win = html[0];
-        win.querySelector("button.re-index")!.addEventListener("click", async () => {
+        win.querySelector(".re-index")!.addEventListener("click", async () => {
             console.log("Re-Index!!!");
             appData.clearCache();
             await indexAssets();
             this.render();
         });
+
+        win.querySelector(".select-modules")!.addEventListener("click", () => showModuleSelectorWindow());
 
         win.querySelectorAll<HTMLElement>(".asset").forEach(asset => asset.addEventListener("click", async (e) => {
             console.log("asset click", e, asset);
@@ -128,13 +132,50 @@ class App extends FormApplication<FormApplicationOptions, AppData, {}> {
     }
 }
 
-async function showMainWindow() {
+class ModuleSelector extends FormApplication<FormApplicationOptions, {existingModules: {[moduleName: string]: {module: Game.ModuleData<ModuleData>, selected: boolean}}}, AppData["selectedModules"]> {
+    constructor(private existingModules: Game.ModuleData<ModuleData>[], private selectedModules: string[]) {
+        super([], { resizable: true, scrollY: [".module-list"], width: 500, height: Math.round(window.innerHeight / 2) });
+        console.log("creating ModuleSelector window for", MODULE_NAME);
+    }
+
+    static get defaultOptions() {
+        return mergeObject(super.defaultOptions, {
+            classes: [],
+            popOut: true,
+            template: joinPath(PATH_TO_ROOT_OF_MODULE, "templates/moduleSelector.html"),
+            id: 'module-selector',
+            title: 'Select Modules',
+        });
+    }
+
+    getData() {
+        const o: {[moduleName: string]: {module: Game.ModuleData<ModuleData>, selected: boolean}} = {};
+        for(const m of this.existingModules) {
+            o[m.id] = {module: m, selected: this.selectedModules.includes(m.id)};
+        }
+        return {existingModules: o};
+    }
+
+    activateListeners(html: JQuery<HTMLElement>) {
+        super.activateListeners(html);
+    }
+
+    async _updateObject(event: Event, formData: object) {
+        console.log("_updateObject", formData);
+    }
+}
+
+function showMainWindow() {
     new App(appData).render(true);
+}
+
+function showModuleSelectorWindow() {
+    new ModuleSelector(Array.from(game.modules.values()), appData.selectedModules).render(true);
 }
 
 async function indexAssets() {
     for(const [name, module] of game.modules.entries()) {
-        console.log("module", module);
+        //console.log("module", module);
         if(isOfInterest(name)) {
             let packCount = 0;
             for(const pack of module.packs) {
@@ -164,7 +205,7 @@ async function indexAssets() {
             }
         }
         else {
-            console.log("ignore module", name);
+            //console.log("ignore module", name);
         }
     }
 }
@@ -174,4 +215,5 @@ Hooks.once('ready', async function() {
     await indexAssets();
     console.log("assetCollection", appData.assetCollection);
     showMainWindow();
+    showModuleSelectorWindow();
 });
