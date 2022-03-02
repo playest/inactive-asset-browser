@@ -9,7 +9,7 @@
                 <h1 data-module-name="{{moduleName}}" data-pack-name="{{packName}}" title="{{moduleName}}.{{packName}}">{{module.title}} / {{pack.title}}</h1>
                 <div class="asset-list">
                     {{#each pack.assets}}
-                    <div class="asset">
+                    <div class="asset" data-module-name="{{moduleName}}" data-pack-name="{{packName}}" data-asset-name="{{this.name}}">
                         <div class="name">{{this.name}}</div>
                         <img src="{{this.thumb}}" />
                     </div>
@@ -22,7 +22,7 @@
                 <h2 data-module-name="{{moduleName}}" data-pack-name="{{packName}}" title="{{packName}}">{{pack.title}}</h2>
                 <div class="asset-list">
                     {{#each pack.assets}}
-                    <div class="asset">
+                    <div class="asset" data-module-name="{{moduleName}}" data-pack-name="{{packName}}" data-asset-name="{{this.name}}">
                         <div class="name">{{this.name}}</div>
                         <img src="{{this.thumb}}" />
                     </div>
@@ -34,6 +34,7 @@
     </div>
     <div class="panel">
         <button class="re-index">Re-Index</button>
+        <div class="asset-view"></div>
     </div>
 </div>
 </div>

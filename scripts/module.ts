@@ -75,6 +75,11 @@ class App extends FormApplication<FormApplicationOptions, AppData, {}> {
             await indexAssets();
             this.render();
         });
+
+        win.querySelectorAll<HTMLElement>(".asset").forEach(asset => asset.addEventListener("click", async (e) => {
+            console.log("asset click", e, asset);
+            win.querySelector(".panel .asset-view")!.innerHTML = `${asset.dataset.moduleName}.${asset.dataset.packName}/${asset.dataset.assetName}`
+        }));
     }
 
     async _updateObject(event: Event, formData: object) {
