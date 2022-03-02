@@ -64,7 +64,7 @@ class App extends FormApplication<FormApplicationOptions, AppData, {}> {
     }
 
     async _updateObject(event: Event, formData: object) {
-        console.log(formData);
+        console.log("_updateObject", formData);
     }
 }
 
