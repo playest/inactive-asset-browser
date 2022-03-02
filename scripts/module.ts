@@ -89,10 +89,6 @@ Hooks.once('init', async function() {
 
 });
 
-function isOfInterest(moduleName: string): boolean {
-    return ["mikwewa-maps-free", "milbys-maps-free", "tomcartos-maps-megapack"].includes(moduleName);
-}
-
 class App extends FormApplication<FormApplicationOptions, AppData, {}> {
     constructor(private data: AppData) {
         super({}, { resizable: true, scrollY: [".module-list"], width: 500, height: Math.round(window.innerHeight / 2) });
@@ -137,7 +133,7 @@ class App extends FormApplication<FormApplicationOptions, AppData, {}> {
 }
 
 class ModuleSelector extends FormApplication<FormApplicationOptions, {existingModules: {[moduleName: string]: {module: Game.ModuleData<ModuleData>, selected: boolean}}}, AppData["selectedModules"]> {
-    constructor(private existingModules: Game.ModuleData<ModuleData>[], private selectedModules: string[]) {
+    constructor(private existingModules: Game.ModuleData<ModuleData>[], private selectedModules: string[], private appData: AppDataClass) {
         super([], { resizable: true, scrollY: [".module-list"], width: 500, height: Math.round(window.innerHeight / 2) });
         log("creating ModuleSelector window for", MODULE_NAME);
     }
@@ -154,52 +150,73 @@ class ModuleSelector extends FormApplication<FormApplicationOptions, {existingMo
 
     getData() {
         const o: {[moduleName: string]: {module: Game.ModuleData<ModuleData>, selected: boolean}} = {};
-        const sorted = Array.from(this.existingModules).sort((a, b) => a.data.title.localeCompare( b.data.title));
-        for(const m of sorted) {
+        for(const m of Array.from(this.existingModules)) {
             o[m.id] = {module: m, selected: this.selectedModules.includes(m.id)};
         }
         return {existingModules: o};
     }
 
+    private static compareByTitle(a: Element, b: Element) {
+        const titleA = a.querySelector(".title")!.innerHTML;
+        const titleB = b.querySelector(".title")!.innerHTML;
+        return titleA.localeCompare(titleB);
+    }
+
+    private static compareByChecked(a: Element, b: Element) {
+        const inputA = a.querySelector<HTMLInputElement>("input")!;
+        const inputB = b.querySelector<HTMLInputElement>("input")!;
+        //log("compare", inputA, inputA.checked, inputB, inputB.checked);
+        if(inputA.checked && !inputB.checked) {
+            //log("    ", 1);
+            return -1;
+        }
+        else if(!inputA.checked && inputB.checked) {
+            //log("    ", -1);
+            return 1;
+        }
+        return 0;
+    }
+
+    private sortModulesByChecked(base: HTMLElement) {
+        log("sort checked");
+        const moduleList = base.closest("form")!.querySelector<HTMLElement>(".module-list ul")!;
+        Array.from(moduleList.children).sort((a, b) => {
+            const checkedCompare = ModuleSelector.compareByChecked(a, b);
+            if(checkedCompare !== 0) {
+                return checkedCompare;
+            }
+            return ModuleSelector.compareByTitle(a, b);
+        }).forEach(node => moduleList.appendChild(node));
+    }
+
+    private sortModulesByAlpha(base: HTMLElement) {
+        log("sort alpha");
+        const moduleList = base.closest("form")!.querySelector<HTMLElement>(".module-list ul")!;
+        Array.from(moduleList.children).sort(ModuleSelector.compareByTitle).forEach(node => moduleList.appendChild(node));
+    }
+
+    private sortModulesByAlphaReversed(base: HTMLElement) {
+        log("sort alpha reverse");
+        const moduleList = base.closest("form")!.querySelector<HTMLElement>(".module-list ul")!;
+        Array.from(moduleList.children).sort((a, b) => -1 * ModuleSelector.compareByTitle(a, b)).forEach(node => moduleList.appendChild(node));
+    }
+
     activateListeners(html: JQuery<HTMLElement>) {
         super.activateListeners(html);
-        function compareByTitle(a: Element, b: Element) {
-            const titleA = a.querySelector(".title")!.innerHTML;
-            const titleB = b.querySelector(".title")!.innerHTML;
-            return titleA.localeCompare(titleB);
-        }
+        const self = this;
         html[0].querySelector<HTMLElement>(".sort-selected")!.addEventListener("click", function() {
-            log("sort selected");
-            const moduleList = this.closest("form")!.querySelector<HTMLElement>(".module-list ul")!;
-            Array.from(moduleList.children).sort((a, b) => {
-                const inputA = a.querySelector<HTMLInputElement>("input")!;
-                const inputB = b.querySelector<HTMLInputElement>("input")!;
-                //log("compare", inputA, inputA.checked, inputB, inputB.checked);
-                if(inputA.checked && !inputB.checked) {
-                    //log("    ", 1);
-                    return -1;
-                }
-                else if(!inputA.checked && inputB.checked) {
-                    //log("    ", -1);
-                    return 1;
-                }
-                else {
-                    return compareByTitle(a, b);
-                }
-            }).forEach(node => moduleList.appendChild(node));
+            self.sortModulesByChecked(this);
         });
 
         html[0].querySelector<HTMLElement>(".sort-alpha")!.addEventListener("click", function() {
-            log("sort alpha");
-            const moduleList = this.closest("form")!.querySelector<HTMLElement>(".module-list ul")!;
-            Array.from(moduleList.children).sort(compareByTitle).forEach(node => moduleList.appendChild(node));
+            self.sortModulesByAlpha(this);
         });
 
         html[0].querySelector<HTMLElement>(".sort-alpha-reverse")!.addEventListener("click", function() {
-            log("sort alpha reverse");
-            const moduleList = this.closest("form")!.querySelector<HTMLElement>(".module-list ul")!;
-            Array.from(moduleList.children).sort((a, b) => -1 * compareByTitle(a, b)).forEach(node => moduleList.appendChild(node));
+            self.sortModulesByAlphaReversed(this);
         });
+
+        this.sortModulesByAlpha(html[0].querySelector(".sort-selected")!);
     }
 
     protected _createSearchFilters(): SearchFilter[] {
@@ -213,8 +230,9 @@ class ModuleSelector extends FormApplication<FormApplicationOptions, {existingMo
         }})];
     }
 
-    async _updateObject(event: Event, formData: object) {
+    async _updateObject(event: Event, formData: {[moduleName: string]: boolean}) {
         log("_updateObject", formData);
+        this.appData.selectedModules = Object.entries(formData).filter(([k, v]) => v === true).map(([k, v]) => k);
     }
 }
 
@@ -223,13 +241,13 @@ function showMainWindow() {
 }
 
 function showModuleSelectorWindow() {
-    new ModuleSelector(Array.from(game.modules.values()), appData.selectedModules).render(true);
+    new ModuleSelector(Array.from(game.modules.values()), appData.selectedModules, appData).render(true);
 }
 
 async function indexAssets() {
     for(const [name, module] of game.modules.entries()) {
         //log("module", module);
-        if(isOfInterest(name)) {
+        if(appData.selectedModules.includes(name)) {
             let packCount = 0;
             for(const pack of module.packs) {
                 if(packCount > 3) { // TODO remove before putting into prod, this is just for faster testing
@@ -261,6 +279,7 @@ async function indexAssets() {
             //log("ignore module", name);
         }
     }
+    console.log("appData", appData);
 }
 
 Hooks.once('ready', async function() {
