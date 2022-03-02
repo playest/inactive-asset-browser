@@ -1,0 +1,6 @@
+- Reindex one module
+- manage which modules are displayed
+- preview asset
+- add keyword to asset
+- add description to asset
+- favourite asset
