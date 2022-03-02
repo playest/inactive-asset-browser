@@ -100,7 +100,10 @@ async function indexAssets() {
                 assetCollection[module.id] = packsInModule;
             }
             let packCount = 0;
-            for(const pack of module.packs) { // TODO this slice is just for quick testing
+            for(const pack of module.packs) {
+                if(packCount > 3) { // TODO remove before putting into prod, this is just for faster testing
+                    break;
+                }
                 if(pack.type == "Scene") {
                     console.log("pack", pack);
                     let assetsInPack = packsInModule.packs[pack.name];
@@ -109,13 +112,15 @@ async function indexAssets() {
                         packsInModule.packs[pack.name] = assetsInPack;
                     }
                     const url = "modules/" + module.id + "/" + pack.path;
-                    console.log(url);
                     const r = await fetch(url);
                     const text = await r.text();
                     const lines = text.split(/\r?\n/);
-                    console.log("lines", lines.length);
+                    let assetCount = 0;
                     for(const line of lines) {
                         if(line !== "") {
+                            if(assetCount >= 5) { // TODO remove before putting into prod, this is just for faster testing
+                                break;
+                            }
                             const o = JSON.parse(line) as SceneDataProperties;
                             if(o.name !== '#[CF_tempEntity]') {
                                 assetsInPack.assets.push({
@@ -123,6 +128,7 @@ async function indexAssets() {
                                     img: o.img,
                                     thumb: o.thumb
                                 });
+                                assetCount++;
                             }
                         }
                     }
