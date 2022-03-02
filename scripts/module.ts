@@ -96,9 +96,10 @@ async function indexAssets() {
         if(isOfInterest(name)) {
             let packsInModule = assetCollection[module.id];
             if(packsInModule === undefined) {
-                packsInModule = {title: module.data.title, packs: {}, onePack: Object.keys(module.packs).length == 1};
+                packsInModule = {title: module.data.title, packs: {}, onePack: false}; // onePack set to false for now
                 assetCollection[module.id] = packsInModule;
             }
+            let packCount = 0;
             for(const pack of module.packs) { // TODO this slice is just for quick testing
                 if(pack.type == "Scene") {
                     console.log("pack", pack);
@@ -125,8 +126,10 @@ async function indexAssets() {
                             }
                         }
                     }
+                    packCount++;
                 }
             }
+            packsInModule.onePack = packCount == 1;
         }
         else {
             console.log("ignore module", name);

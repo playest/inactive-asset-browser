@@ -3,16 +3,16 @@
     <form style="display: none;"></form>
     <button class="re-index">Re-Index</button>
     <div class="module-list">
-        {{#each assetCollection}}
-        {{#if this.onePack}}
-            <h1>1 {{@key}} / {{this.title}}</h1>
-            {{#each this.packs}}
-                <h1>1 {{@key}} / {{this.title}}</h1>
+        {{#each assetCollection as |module moduleName|}}
+        {{log "module" module}}
+        {{#if module.onePack}}
+            {{#each this.packs as |pack packName|}}
+                <h1 data-module-name="{{moduleName}}" data-pack-name="{{packName}}" title="{{moduleName}}.{{packName}}">{{module.title}} / {{pack.title}}</h1>
             {{/each}}
         {{else}}
-            <h1>{{@key}} / {{this.title}}</h1>
-            {{#each this.packs}}
-                <h2>{{@key}} / {{this.title}}</h2>
+            <h1 data-module-name="{{moduleName}}" title="{{moduleName}}">{{module.title}}</h1>
+            {{#each this.packs as |pack packName|}}
+                <h2 data-module-name="{{moduleName}}" data-pack-name="{{packName}}" title="{{packName}}">{{pack.title}}</h2>
             {{/each}}
         {{/if}}
         {{/each}}
