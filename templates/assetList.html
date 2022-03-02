@@ -2,11 +2,16 @@
     <!-- A FormApplication needs a form to avoid errors, so we put one but we hide it -->
     <form style="display: none;"></form>
     <button class="re-index">Re-Index</button>
-    <div class="asset-list">
-        {{#each assets}}
-        <div class="asset">
-            <div class="name">{{this.name}}</div>
-            <img src="{{this.thumb}}" />
+    <div class="module-list">
+        {{#each assetCollection}}
+        <h1>{{@key}}</h1>
+        <div class="asset-list">
+            {{#each this}}
+            <div class="asset">
+                <div class="name">{{this.name}}</div>
+                <img src="{{this.thumb}}" />
+            </div>
+            {{/each}}
         </div>
         {{/each}}
     </div>

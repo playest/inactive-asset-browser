@@ -17,7 +17,7 @@ interface Asset {
 }
 
 interface AppData {
-    assets: Asset[]
+    assetCollection: { [moduleName: string]: Asset[] }
 }
 
 const MODULE_NAME = "inactive-asset-browser";
@@ -31,7 +31,7 @@ Hooks.once('init', async function() {
 });
 
 function isOfInterest(moduleName: string): boolean {
-    return ["czepeku-maps-megapack"].includes(moduleName);
+    return ["mikwewa-maps-free", "milbys-maps-free"].includes(moduleName);
 }
 
 class App extends FormApplication<FormApplicationOptions, AppData, {}> {
@@ -39,6 +39,8 @@ class App extends FormApplication<FormApplicationOptions, AppData, {}> {
         super({}, { resizable: true, width: 500, height: Math.round(window.innerHeight / 2) });
         console.log("creating window for", MODULE_NAME);
     }
+
+
 
     static get defaultOptions() {
         return mergeObject(super.defaultOptions, {
@@ -57,6 +59,13 @@ class App extends FormApplication<FormApplicationOptions, AppData, {}> {
 
     activateListeners(html: JQuery<HTMLElement>) {
         super.activateListeners(html);
+        const win = html[0];
+        win.querySelector("button.re-index")!.addEventListener("click", async () => {
+            console.log("Re-Index!!!");
+            assetCollection = {};
+            await indexAssets();
+            this.render();
+        });
     }
 
     async _updateObject(event: Event, formData: object) {
@@ -64,14 +73,13 @@ class App extends FormApplication<FormApplicationOptions, AppData, {}> {
     }
 }
 
-const cache: Asset[] = [];
+let assetCollection: AppData["assetCollection"] = {};
 
 async function showMainWindow() {
-    new App({ assets: cache }).render(true);
+    new App({ assetCollection }).render(true);
 }
 
-Hooks.once('ready', async function() {
-    console.log("inactive-asset-browser started");
+async function indexAssets() {
     for(const [name, module] of game.modules.entries()) {
         if(isOfInterest(name)) {
             for(const pack of module.packs.slice(0, 3)) { // TODO this slice is just for quick testing
@@ -86,17 +94,33 @@ Hooks.once('ready', async function() {
                     for(const line of lines) {
                         if(line !== "") {
                             const o = JSON.parse(line) as SceneDataProperties;
-                            console.log(o.img);
-                            cache.push({
-                                name: o.name,
-                                img: o.img,
-                                thumb: o.thumb
-                            });
+                            if(o.name !== '#[CF_tempEntity]') {
+                                console.log(o.img);
+                                let assetsInModule = assetCollection[module.id];
+                                if(assetsInModule === undefined) {
+                                    assetsInModule = [];
+                                    assetCollection[module.id] = assetsInModule;
+                                }
+                                assetsInModule.push({
+                                    name: o.name,
+                                    img: o.img,
+                                    thumb: o.thumb
+                                });
+                            }
                         }
                     }
                 }
             }
         }
+        else {
+            console.log("ignore module", name);
+        }
     }
+}
+
+Hooks.once('ready', async function() {
+    console.log("inactive-asset-browser started");
+    await indexAssets();
+    console.log("assetCollection", assetCollection);
     showMainWindow();
 });
