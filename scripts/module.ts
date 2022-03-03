@@ -117,7 +117,7 @@ Hooks.once('init', async function() {
 
 });
 
-class App extends FormApplication<FormApplicationOptions, AppData, {}> {
+class AssetLister extends FormApplication<FormApplicationOptions, AppData, {}> {
     constructor(private data: AppDataClass) {
         super({}, {
             resizable: true,
@@ -173,7 +173,7 @@ class App extends FormApplication<FormApplicationOptions, AppData, {}> {
 }
 
 class ModuleSelector extends FormApplication<FormApplicationOptions, {existingModules: {[moduleName: string]: {module: Game.ModuleData<ModuleData>, selected: boolean}}}, AppData["selectedModules"]> {
-    constructor(private existingModules: Game.ModuleData<ModuleData>[], private selectedModules: string[], private appData: AppDataClass, private app: App) {
+    constructor(private existingModules: Game.ModuleData<ModuleData>[], private selectedModules: string[], private appData: AppDataClass, private assetLister: AssetLister) {
         super([], { resizable: true, scrollY: [".module-list"], width: 500, height: Math.round(window.innerHeight / 2) });
         log("creating ModuleSelector window for", MODULE_NAME);
     }
@@ -278,19 +278,19 @@ class ModuleSelector extends FormApplication<FormApplicationOptions, {existingMo
                 this.appData.addShalowModule(moduleName);
             }
         });
-        this.app.render();
+        this.assetLister.render();
     }
 }
 
-let app: App | null = null;
+let assetLister: AssetLister | null = null;
 function showMainWindow() {
-    app = new App(appData);
-    app.render(true);
+    assetLister = new AssetLister(appData);
+    assetLister.render(true);
 }
 
 function showModuleSelectorWindow() {
-    assert(app != null);
-    new ModuleSelector(Array.from(game.modules.values()), appData.selectedModules, appData, app).render(true);
+    assert(assetLister != null);
+    new ModuleSelector(Array.from(game.modules.values()), appData.selectedModules, appData, assetLister).render(true);
 }
 
 function scenesFromPackContent(content: string) {
