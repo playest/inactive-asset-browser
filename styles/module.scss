@@ -17,6 +17,16 @@
                 }
             }
         }
+        h1, h2 {
+            position: sticky;
+            background: url(../../../ui/parchment.jpg) repeat;
+        }
+        h1 {
+            top: 0;
+        }
+        h2 {
+            top: 35px;
+        }
     }
     .panel {
         width: 200px;

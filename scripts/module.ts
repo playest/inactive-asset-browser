@@ -329,9 +329,11 @@ function scenesFromPackContent(content: string) {
     let assetCount = 0;
     for(const line of lines) {
         if(line !== "") {
+            /*
             if(assetCount >= 5) { // TODO remove before putting into prod, this is just for faster testing
                 break;
             }
+            */
             const o = JSON.parse(line) as SceneDataProperties;
             if(o.name !== '#[CF_tempEntity]') {
                 scenes.push(o);
