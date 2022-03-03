@@ -125,7 +125,7 @@ class ConfigManager {
             name: "Selected Modules",
             hint: "List of modules that will be browsed for assets",
             scope: "client",
-            config: false,
+            config: true,
             type: Object,
             default: [],
             onChange: (newValue) => log(`${this.keys.selectedModules} changed to`, newValue)
@@ -134,9 +134,10 @@ class ConfigManager {
             name: "Sort Order",
             hint: "Order in which to sort the modules",
             scope: "client",
-            config: false,
+            config: true,
             type: String,
             default: "alpha",
+            choices: {alpha: "alphabetical order", alphaReversed: "reverse alphabetical order", checkedFirst: "checked modules first"},
             onChange: (newValue) => log(`${this.keys.moduleSortOrder} changed to`, newValue)
         });
     }
