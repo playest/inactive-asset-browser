@@ -1,6 +1,9 @@
 import { SceneDataProperties } from "@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/data/data.mjs/sceneData";
 import { ModuleData } from "@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/packages.mjs/moduleData";
 
+const MODULE_NAME = "inactive-asset-browser";
+const PATH_TO_ROOT_OF_MODULE = `modules/${MODULE_NAME}/`;
+
 // Set this variables as their initilized state, see doc of LenientGlobalVariableTypes for an explanation
 declare global {
     interface LenientGlobalVariableTypes {
@@ -18,7 +21,6 @@ interface Asset {
 }
 
 interface AppData {
-    selectedModules: string[],
     assetCollection: {
         [moduleName: string]: {
             title: string,
@@ -34,7 +36,6 @@ interface AppData {
 }
 
 class AppDataClass implements AppData {
-    selectedModules: string[] = [];
     assetCollection: {
         [moduleName: string]: {
             title: string;
@@ -47,6 +48,10 @@ class AppDataClass implements AppData {
             };
         };
     } = {};
+
+    constructor(private configManager: ConfigManager) {
+
+    }
 
     addScene(moduleId: string, moduleTitle: string, packName: string, packTitle: string, asset: SceneDataProperties) {
         let module = this.assetCollection[moduleId];
@@ -100,11 +105,59 @@ function assert(cond: boolean): asserts cond {
     }
 }
 
-const appData = new AppDataClass();
-appData.selectedModules = ["mikwewa-maps-free", "milbys-maps-free", "tomcartos-maps-megapack"];
+function assertNever(x: never): never {
+    throw new Error("Unexpected object: " + x);
+}
 
-const MODULE_NAME = "inactive-asset-browser";
-const PATH_TO_ROOT_OF_MODULE = `modules/${MODULE_NAME}/`;
+class ConfigManager {
+    private keys = {
+        selectedModules: "selectedModules",
+        moduleSortOrder: "moduleSortOrder",
+    };
+    private moduleSortOrderChoices = ["alpha", "alphaReversed", "checkedFirst"] as const;
+
+    constructor(private modName: string) {
+        this.registerSettings();
+    }
+
+    private registerSettings() {
+        game.settings.register(this.modName, this.keys.selectedModules, {
+            name: "Selected Modules",
+            hint: "List of modules that will be browsed for assets",
+            scope: "client",
+            config: false,
+            type: Object,
+            default: [],
+            onChange: (newValue) => log(`${this.keys.selectedModules} changed to`, newValue)
+        });
+        game.settings.register(this.modName, this.keys.moduleSortOrder, {
+            name: "Sort Order",
+            hint: "Order in which to sort the modules",
+            scope: "client",
+            config: false,
+            type: String,
+            default: "alpha",
+            onChange: (newValue) => log(`${this.keys.moduleSortOrder} changed to`, newValue)
+        });
+    }
+
+    setSelectedModules(selectedModules: string[]) {
+        game.settings.set(this.modName, this.keys.selectedModules, selectedModules);
+    }
+
+    getSelectedModules(): readonly string[] {
+        return game.settings.get(this.modName, this.keys.selectedModules) as string[];
+    }
+
+    setModuleSortOrder(sortOrder: ValueOf<typeof this.moduleSortOrderChoices>) {
+        game.settings.set(this.modName, this.keys.moduleSortOrder, sortOrder);
+    }
+
+    getModuleSortOrder() {
+        return game.settings.get(this.modName, this.keys.moduleSortOrder) as ValueOf<typeof this.moduleSortOrderChoices>;
+    }
+}
+
 function joinPath(...paths: string[]) {
     return paths.join("/");
 }
@@ -113,8 +166,12 @@ function log(message: unknown, ...otherMessages: unknown[]) {
     console.log(MODULE_NAME, "|", message, ...otherMessages);
 }
 
-Hooks.once('init', async function() {
+let configManager: ConfigManager;
+let appData: AppDataClass;
 
+Hooks.once('init', async function() {
+    configManager = new ConfigManager(MODULE_NAME);
+    appData = new AppDataClass(configManager);
 });
 
 class AssetLister extends FormApplication<FormApplicationOptions, AppData, {}> {
@@ -186,8 +243,8 @@ class AssetLister extends FormApplication<FormApplicationOptions, AppData, {}> {
     }
 }
 
-class ModuleSelector extends FormApplication<FormApplicationOptions, {existingModules: {[moduleName: string]: {module: Game.ModuleData<ModuleData>, selected: boolean}}}, AppData["selectedModules"]> {
-    constructor(private existingModules: Game.ModuleData<ModuleData>[], private selectedModules: string[], private appData: AppDataClass, private assetLister: AssetLister) {
+class ModuleSelector extends FormApplication<FormApplicationOptions, {existingModules: {[moduleName: string]: {module: Game.ModuleData<ModuleData>, selected: boolean}}}, string[]> {
+    constructor(private existingModules: Game.ModuleData<ModuleData>[], private appData: AppDataClass, private assetLister: AssetLister, private configManager: ConfigManager) {
         super([], { resizable: true, scrollY: [".module-list"], width: 500, height: Math.round(window.innerHeight / 2) });
         log("creating ModuleSelector window for", MODULE_NAME);
     }
@@ -204,8 +261,9 @@ class ModuleSelector extends FormApplication<FormApplicationOptions, {existingMo
 
     getData() {
         const o: {[moduleName: string]: {module: Game.ModuleData<ModuleData>, selected: boolean}} = {};
+        const selectedModules = this.configManager.getSelectedModules();
         for(const m of Array.from(this.existingModules)) {
-            o[m.id] = {module: m, selected: this.selectedModules.includes(m.id)};
+            o[m.id] = {module: m, selected: selectedModules.includes(m.id)};
         }
         return {existingModules: o};
     }
@@ -260,14 +318,17 @@ class ModuleSelector extends FormApplication<FormApplicationOptions, {existingMo
         const self = this;
         html[0].querySelector<HTMLElement>(".sort-selected")!.addEventListener("click", function() {
             self.sortModulesByChecked(this);
+            self.configManager.setModuleSortOrder("checkedFirst");
         });
 
         html[0].querySelector<HTMLElement>(".sort-alpha")!.addEventListener("click", function() {
             self.sortModulesByAlpha(this);
+            self.configManager.setModuleSortOrder("alpha");
         });
 
         html[0].querySelector<HTMLElement>(".sort-alpha-reverse")!.addEventListener("click", function() {
             self.sortModulesByAlphaReversed(this);
+            self.configManager.setModuleSortOrder("alphaReversed");
         });
 
         html[0].querySelector<HTMLElement>(".check-all")!.addEventListener("click", function() {
@@ -286,7 +347,20 @@ class ModuleSelector extends FormApplication<FormApplicationOptions, {existingMo
             });
         });
 
-        this.sortModulesByAlpha(html[0].querySelector(".sort-selected")!);
+        // TODO this is probably not the right place to do it, but I don't know where to actually do this
+        const sortOrder = this.configManager.getModuleSortOrder();
+        if(sortOrder === "alpha") {
+            this.sortModulesByAlpha(html[0].querySelector(".sort-alpha")!);
+        }
+        else if(sortOrder === "alphaReversed") {
+            this.sortModulesByAlphaReversed(html[0].querySelector(".sort-alpha-reverse")!);
+        }
+        else if(sortOrder === "checkedFirst") {
+            this.sortModulesByChecked(html[0].querySelector(".sort-selected")!);
+        }
+        else {
+            assertNever(sortOrder);
+        }
     }
 
     protected _createSearchFilters(): SearchFilter[] {
@@ -302,7 +376,7 @@ class ModuleSelector extends FormApplication<FormApplicationOptions, {existingMo
 
     async _updateObject(event: Event, formData: {[moduleName: string]: boolean}) {
         log("_updateObject", formData);
-        this.appData.selectedModules = Object.entries(formData).filter(([k, v]) => v === true).map(([k, v]) => k);
+        this.configManager.setSelectedModules(Object.entries(formData).filter(([k, v]) => v === true).map(([k, v]) => k));
         Object.entries(formData).forEach(([moduleName, selected]) => {
             if(selected === true) {
                 this.appData.addShalowModule(moduleName);
@@ -320,7 +394,7 @@ function showMainWindow() {
 
 function showModuleSelectorWindow() {
     assert(assetLister != null);
-    new ModuleSelector(Array.from(game.modules.values()), appData.selectedModules, appData, assetLister).render(true);
+    new ModuleSelector(Array.from(game.modules.values()), appData, assetLister, configManager).render(true);
 }
 
 function scenesFromPackContent(content: string) {
@@ -363,9 +437,10 @@ async function packsFromModule(module: Game.ModuleData<ModuleData>) {
 }
 
 async function indexAssets(shalow: boolean) {
+    const selectedModules = configManager.getSelectedModules();
     for(const [name, module] of game.modules.entries()) {
         //log("module", module);
-        if(appData.selectedModules.includes(name)) {
+        if(selectedModules.includes(name)) {
             let packCount = 0;
             if(!shalow) {
                 for(const pack of await packsFromModule(module)) {
