@@ -270,6 +270,22 @@ class ModuleSelector extends FormApplication<FormApplicationOptions, {existingMo
             self.sortModulesByAlphaReversed(this);
         });
 
+        html[0].querySelector<HTMLElement>(".check-all")!.addEventListener("click", function() {
+            const moduleList = this.closest("form")!.querySelectorAll<HTMLInputElement>('.module-list ul input[type="checkbox"]').forEach(checkbox => {
+                if(checkbox.closest<HTMLElement>("li")!.style.display !== "none") {
+                    checkbox.checked = true;
+                }
+            });
+        });
+
+        html[0].querySelector<HTMLElement>(".check-none")!.addEventListener("click", function() {
+            const moduleList = this.closest("form")!.querySelectorAll<HTMLInputElement>('.module-list ul input[type="checkbox"]').forEach(checkbox => {
+                if(checkbox.closest<HTMLElement>("li")!.style.display !== "none") {
+                    checkbox.checked = false;
+                }
+            });
+        });
+
         this.sortModulesByAlpha(html[0].querySelector(".sort-selected")!);
     }
 
