@@ -118,6 +118,8 @@ Hooks.once('init', async function() {
 });
 
 class AssetLister extends FormApplication<FormApplicationOptions, AppData, {}> {
+    private currentAsset: null | { moduleName: string, packName: string, assetNumber: number } = null;
+
     constructor(private data: AppDataClass) {
         super({}, {
             resizable: true,
@@ -148,15 +150,27 @@ class AssetLister extends FormApplication<FormApplicationOptions, AppData, {}> {
         win.querySelector(".re-index")!.addEventListener("click", async () => {
             log("Re-Index!!!");
             appData.clearCache();
-            await indexAssets(true);
+            await indexAssets(false);
             this.render();
         });
 
         win.querySelector(".select-modules")!.addEventListener("click", () => showModuleSelectorWindow());
 
+        win.querySelector(".add-scene")!.addEventListener("click", async () => {
+            log("adding", this.currentAsset);
+            assert(this.currentAsset != null);
+            const asset = this.data.assetCollection[this.currentAsset.moduleName].packs[this.currentAsset.packName].assets[this.currentAsset.assetNumber];
+            log(asset);
+        });
+
         win.querySelectorAll<HTMLElement>(".asset").forEach(asset => asset.addEventListener("click", async (e) => {
             log("asset click", e, asset);
+            assert(asset.dataset.moduleName != undefined);
+            assert(asset.dataset.packName != undefined);
+            assert(asset.dataset.assetName != undefined);
+            assert(asset.dataset.assetNumber != undefined);
             win.querySelector(".panel .asset-view")!.innerHTML = `${asset.dataset.moduleName}.${asset.dataset.packName}/${asset.dataset.assetName}`
+            this.currentAsset = { moduleName: asset.dataset.moduleName, packName: asset.dataset.packName, assetNumber: parseInt(asset.dataset.assetNumber, 10) };
         }));
 
         win.querySelectorAll<HTMLElement>(".refresh-module")!.forEach(btn => btn.addEventListener("click", async () => {
