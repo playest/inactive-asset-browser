@@ -5,3 +5,4 @@
 - add description to asset
 - favourite asset
 - filter out modules that don't contain scenes
+- check dependencies of modules and scenes
