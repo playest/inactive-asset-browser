@@ -1,4 +1,4 @@
-import { SceneDataProperties } from "@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/data/data.mjs/sceneData";
+import { SceneData, SceneDataConstructorData, SceneDataProperties } from "@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/data/data.mjs/sceneData";
 import { ModuleData } from "@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/packages.mjs/moduleData";
 
 const MODULE_NAME = "inactive-asset-browser";
@@ -18,6 +18,7 @@ interface Asset {
     name: string,
     img: string | null | undefined, // we should probably exclude those without image
     thumb: string | null | undefined,
+    raw: SceneData,
 }
 
 interface AppData {
@@ -53,7 +54,7 @@ class AppDataClass implements AppData {
 
     }
 
-    addScene(moduleId: string, moduleTitle: string, packName: string, packTitle: string, asset: SceneDataProperties) {
+    addScene(moduleId: string, moduleTitle: string, packName: string, packTitle: string, asset: SceneData) {
         let module = this.assetCollection[moduleId];
         if(module === undefined) {
             module = { title: moduleTitle, onePack: false, packs: {} };
@@ -67,7 +68,8 @@ class AppDataClass implements AppData {
         packInModule.assets.push({
             name: asset.name,
             img: asset.img,
-            thumb: asset.thumb
+            thumb: asset.thumb,
+            raw: asset,
         });
         module.onePack = Object.keys(module.packs).length == 1;
     }
@@ -175,6 +177,11 @@ Hooks.once('init', async function() {
     appData = new AppDataClass(configManager);
 });
 
+function toSceneDataConstructorData(sdp: SceneData): SceneDataConstructorData {
+    // TODO these types are not compatible but everything seems to work, hence the type assertion
+    return sdp as unknown as SceneDataConstructorData;
+}
+
 class AssetLister extends FormApplication<FormApplicationOptions, AppData, {}> {
     private currentAsset: null | { moduleName: string, packName: string, assetNumber: number } = null;
 
@@ -208,8 +215,10 @@ class AssetLister extends FormApplication<FormApplicationOptions, AppData, {}> {
         win.querySelector(".re-index")!.addEventListener("click", async () => {
             log("Re-Index!!!");
             appData.clearCache();
-            await indexAssets(false);
-            this.render();
+            await indexAssets(false, info => log(new Date(), info));
+            log("Start rendering after indexing", new Date());
+            await this._render();
+            log("Finished rendering after indexing", new Date());
         });
 
         win.querySelector(".select-modules")!.addEventListener("click", () => showModuleSelectorWindow());
@@ -219,6 +228,10 @@ class AssetLister extends FormApplication<FormApplicationOptions, AppData, {}> {
             assert(this.currentAsset != null);
             const asset = this.data.assetCollection[this.currentAsset.moduleName].packs[this.currentAsset.packName].assets[this.currentAsset.assetNumber];
             log(asset);
+            let newScene = await Scene.create(toSceneDataConstructorData(asset.raw));
+            assert(newScene != undefined);
+            let tData = await newScene.createThumbnail();
+            await newScene.update({thumb: tData.thumb}); // force generating the thumbnail
         });
 
         win.querySelectorAll<HTMLElement>(".asset").forEach(asset => asset.addEventListener("click", async (e) => {
@@ -399,7 +412,7 @@ function showModuleSelectorWindow() {
 }
 
 function scenesFromPackContent(content: string) {
-    const scenes: SceneDataProperties[] = [];
+    const scenes: SceneData[] = [];
     const lines = content.split(/\r?\n/);
     let assetCount = 0;
     for(const line of lines) {
@@ -409,7 +422,7 @@ function scenesFromPackContent(content: string) {
                 break;
             }
             */
-            const o = JSON.parse(line) as SceneDataProperties;
+            const o = JSON.parse(line) as SceneData;
             if(o.name !== '#[CF_tempEntity]') {
                 scenes.push(o);
                 assetCount++;
@@ -437,17 +450,70 @@ async function packsFromModule(module: Game.ModuleData<ModuleData>) {
     return packContents;
 }
 
-async function indexAssets(shalow: boolean) {
+type IndexUpdateInfo = {
+    message: string | null,
+    existing: {
+        modules: {
+            found: number,
+            finished: number,
+        },
+        packs: {
+            found: number,
+            finished: number,
+        },
+        assets: {
+            found: number,
+            finished: number,
+        }
+    },
+};
+
+type IndexUpdateCallback = (info: IndexUpdateInfo) => void;
+
+async function indexAssets(shalow: boolean, updater: IndexUpdateCallback | null) {
     const selectedModules = configManager.getSelectedModules();
+    const info: IndexUpdateInfo = {
+        message: null,
+        existing: {
+            modules: {
+                found: selectedModules.length,
+                finished: 0,
+            },
+            packs: {
+                found: 0,
+                finished: 0,
+            },
+            assets: {
+                found: 0,
+                finished: 0,
+            },
+        },
+    };
+    info.message = `Starting indexing ${info.existing.modules.found} modules`;
+    updater?.(info);
     for(const [name, module] of game.modules.entries()) {
-        //log("module", module);
         if(selectedModules.includes(name)) {
-            let packCount = 0;
             if(!shalow) {
-                for(const pack of await packsFromModule(module)) {
-                    for(const scene of scenesFromPackContent(pack.content)) {
+                const packs = await packsFromModule(module);
+                info.existing.packs.found += packs.length;
+                info.message = `Found ${info.existing.packs.found} packs in ${module.data.name}`;
+                updater?.(info);
+                for(const pack of packs) {
+                    const scenes = scenesFromPackContent(pack.content);
+                    info.existing.assets.found += scenes.length;
+                    info.message = `Found ${info.existing.assets.found} assets in ${pack.name}`;
+                    updater?.(info);
+                    let sceneIndex = 0;
+                    for(const scene of scenes) {
                         appData.addScene(module.id, module.data.title, pack.name, pack.title, scene);
+                        info.existing.assets.finished++;
+                        info.message = `Asset ${sceneIndex} finished`;
+                        updater?.(info);
+                        sceneIndex++;
                     }
+                    info.existing.packs.finished++;
+                    info.message = `Pack ${pack.name} finished`;
+                    updater?.(info);
                 }
             }
             else {
@@ -457,13 +523,16 @@ async function indexAssets(shalow: boolean) {
         else {
             //log("ignore module", name);
         }
+        info.existing.modules.finished++;
+        info.message = `Module ${module.id} finished`;
+        updater?.(info);
     }
     log("indexAssets.appData", appData);
 }
 
 Hooks.once('ready', async function() {
     log("started");
-    await indexAssets(true);
+    await indexAssets(true, null);
     log("appData ready", appData);
     showMainWindow();
     showModuleSelectorWindow();
