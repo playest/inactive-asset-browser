@@ -18,7 +18,7 @@ interface Asset {
     name: string,
     img: string | null | undefined, // we should probably exclude those without image
     thumb: string | null | undefined,
-    raw: SceneData,
+    raw: SceneDataConstructorData,
 }
 
 interface AppData {
@@ -54,7 +54,7 @@ class AppDataClass implements AppData {
 
     }
 
-    addScene(moduleId: string, moduleTitle: string, packName: string, packTitle: string, asset: SceneData) {
+    addScene(moduleId: string, moduleTitle: string, packName: string, packTitle: string, asset: SceneDataConstructorData) {
         let module = this.assetCollection[moduleId];
         if(module === undefined) {
             module = { title: moduleTitle, onePack: false, packs: {} };
@@ -177,11 +177,6 @@ Hooks.once('init', async function() {
     appData = new AppDataClass(configManager);
 });
 
-function toSceneDataConstructorData(sdp: SceneData): SceneDataConstructorData {
-    // TODO these types are not compatible but everything seems to work, hence the type assertion
-    return sdp as unknown as SceneDataConstructorData;
-}
-
 class AssetLister extends FormApplication<FormApplicationOptions, AppData, {}> {
     private currentAsset: null | { moduleName: string, packName: string, assetNumber: number } = null;
 
@@ -228,7 +223,7 @@ class AssetLister extends FormApplication<FormApplicationOptions, AppData, {}> {
             assert(this.currentAsset != null);
             const asset = this.data.assetCollection[this.currentAsset.moduleName].packs[this.currentAsset.packName].assets[this.currentAsset.assetNumber];
             log(asset);
-            let newScene = await Scene.create(toSceneDataConstructorData(asset.raw));
+            let newScene = await Scene.create(asset.raw);
             assert(newScene != undefined);
             let tData = await newScene.createThumbnail();
             await newScene.update({thumb: tData.thumb}); // force generating the thumbnail
@@ -412,7 +407,7 @@ function showModuleSelectorWindow() {
 }
 
 function scenesFromPackContent(content: string) {
-    const scenes: SceneData[] = [];
+    const scenes: SceneDataConstructorData[] = [];
     const lines = content.split(/\r?\n/);
     let assetCount = 0;
     for(const line of lines) {
@@ -422,7 +417,7 @@ function scenesFromPackContent(content: string) {
                 break;
             }
             */
-            const o = JSON.parse(line) as SceneData;
+            const o = JSON.parse(line) as SceneDataConstructorData;
             if(o.name !== '#[CF_tempEntity]') {
                 scenes.push(o);
                 assetCount++;
