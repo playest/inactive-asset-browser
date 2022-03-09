@@ -83,6 +83,7 @@ class AppDataClass implements AppData {
                 this.addScene(module.id, module.data.title, pack.name, pack.title, scene);
             }
         }
+        return this.assetCollection[moduleId];
     }
 
     clearCache() {
@@ -351,15 +352,13 @@ class ModuleSelector extends FormApplication<FormApplicationOptions, { existingM
                 let module: typeof self.appData.assetCollection["modName"] | undefined = self.appData.assetCollection[moduleName];
                 let packs: [packName: string, pack: typeof self.appData.assetCollection["modName"]["packs"]["packName"]][];
                 if(module === undefined) {
-                    await self.appData.reindexModule(moduleName);
-                    module = self.appData.assetCollection[moduleName];
+                    module = await self.appData.reindexModule(moduleName);
                     packs = Object.entries(module.packs);
                 }
                 else {
                     packs = Object.entries(module.packs);
                     if(packs.length === 0) {
-                        await self.appData.reindexModule(moduleName);
-                        module = self.appData.assetCollection[moduleName];
+                        module = await self.appData.reindexModule(moduleName);
                         packs = Object.entries(module.packs);
                     }
                 }
