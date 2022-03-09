@@ -332,7 +332,8 @@ class ModuleSelector extends FormApplication<FormApplicationOptions, { existingM
 
         html[0].querySelector<HTMLElement>(".check-all")!.addEventListener("click", function() {
             const moduleList = this.closest("form")!.querySelectorAll<HTMLInputElement>('.module-list ul input[type="checkbox"]').forEach(checkbox => {
-                if(checkbox.closest<HTMLElement>("li")!.style.display !== "none") {
+                const li = checkbox.closest<HTMLElement>("li")!;
+                if(li.style.display !== "none" && getComputedStyle(li).display !== "none") {
                     checkbox.checked = true;
                 }
             });
@@ -346,7 +347,8 @@ class ModuleSelector extends FormApplication<FormApplicationOptions, { existingM
             });
         });
 
-        html[0].querySelector<HTMLElement>(".scenes-only")!.addEventListener("click", function() {
+        html[0].querySelector<HTMLElement>("button.show-only-modules-with-scenes")!.addEventListener("click", function() {
+            html[0].classList.add("show-only-modules-with-scenes");
             this.closest("form")!.querySelectorAll<HTMLInputElement>('.module-list ul li').forEach(async li => {
                 const moduleName = li.dataset.moduleName!;
                 let module: typeof self.appData.assetCollection["modName"] | undefined = self.appData.assetCollection[moduleName];
@@ -367,6 +369,10 @@ class ModuleSelector extends FormApplication<FormApplicationOptions, { existingM
                 li.classList.toggle("has-scene", hasScene);
                 li.classList.toggle("no-scene", !hasScene);
             });
+        });
+
+        html[0].querySelector<HTMLElement>("button.show-all-modules")!.addEventListener("click", function() {
+            html[0].classList.remove("show-only-modules-with-scenes");
         });
 
         // TODO this is probably not the right place to do it, but I don't know where to actually do this

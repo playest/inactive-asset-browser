@@ -47,6 +47,16 @@
 }
 
 .inactive-asset-browser.module-selector {
+    &.show-only-modules-with-scenes {
+        .no-scene, button.show-only-modules-with-scenes {
+            display: none;
+        }
+    }
+    &:not(.show-only-modules-with-scenes) {
+        button.show-all-modules {
+            display: none;
+        }
+    }
     height: 100%;
     .module-list {
         overflow-y: auto;
@@ -60,13 +70,7 @@
                     display: contents;
                 }
                 &.unkown-scene-status {
-                    background-color: grey;
-                }
-                &.has-scene {
-                    background-color: green;
-                }
-                &.no-scene {
-                    background-color: red;
+                    background-color: grey; // mostly for debugging purpose
                 }
             }
         }
