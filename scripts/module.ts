@@ -243,9 +243,11 @@ class AssetLister extends FormApplication<FormApplicationOptions, AppData, {}> {
 
     protected _createSearchFilters(): SearchFilter[] {
         return [new SearchFilter({
-            contentSelector: ".modules .assets", inputSelector: ".filter", callback: function(event, typedText, rgx, parent) {
+            contentSelector: ".modules", inputSelector: ".filter", callback: function(event, typedText, rgx, parent) {
                 // TODO the type of the last parameter (parent) is wrong in the doc
-                for(let li of Array.from((parent as unknown as HTMLElement).children) as HTMLElement[]) {
+                log(parent);
+                const parent2 = (parent as unknown as HTMLElement);
+                for(let li of Array.from(parent2.querySelectorAll<HTMLElement>(".asset"))) {
                     const name = li.querySelector(".name")!.textContent!;
                     const match = rgx.test(SearchFilter.cleanQuery(name));
                     li.style.display = match ? "" : "none";
