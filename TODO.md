@@ -1,8 +1,9 @@
 - x Reindex one module
 - x manage which modules are displayed
-- preview asset
+- preview asset in big
 - add keyword to asset
 - add description to asset
 - favourite asset
 - filter out modules that don't contain scenes
 - check dependencies of modules and scenes
+- save index on drive
