@@ -530,5 +530,4 @@ Hooks.once('ready', async function() {
     await indexAssets(true, null);
     log("appData ready", appData);
     showMainWindow();
-    showModuleSelectorWindow();
 });
