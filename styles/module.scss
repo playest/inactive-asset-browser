@@ -64,5 +64,11 @@
     }
     .controls {
         flex: none;
+        button {
+            height: fit-content;
+            &.small {
+                flex: 0;
+            }
+        }
     }
 }
