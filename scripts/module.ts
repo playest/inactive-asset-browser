@@ -246,11 +246,32 @@ class AssetLister extends FormApplication<FormApplicationOptions, AppData, {}> {
             contentSelector: ".modules", inputSelector: ".filter", callback: function(event, typedText, rgx, parent) {
                 // TODO the type of the last parameter (parent) is wrong in the doc
                 log(parent);
+                if(typedText.length === 0) {
+                    return;
+                }
                 const parent2 = (parent as unknown as HTMLElement);
-                for(let li of Array.from(parent2.querySelectorAll<HTMLElement>(".asset"))) {
-                    const name = li.querySelector(".name")!.textContent!;
+                for(const assetElement of Array.from(parent2.querySelectorAll<HTMLElement>(".asset"))) {
+                    const name = assetElement.querySelector(".name")!.textContent!;
                     const match = rgx.test(SearchFilter.cleanQuery(name));
-                    li.style.display = match ? "" : "none";
+                    assetElement.style.display = match ? "" : "none";
+                }
+                for(const packElement of Array.from(parent2.querySelectorAll<HTMLElement>(".pack"))) {
+                    const notEmpty = Array.from(packElement.querySelectorAll<HTMLElement>(".asset")).some(e => e.style.display != "none");
+                    if(notEmpty) {
+                        packElement.style.display = "";
+                    }
+                    else {
+                        packElement.style.display = "none";
+                    }
+                }
+                for(const moduleElement of Array.from(parent2.querySelectorAll<HTMLElement>(".module"))) {
+                    const notEmpty = Array.from(moduleElement.querySelectorAll<HTMLElement>(".pack")).some(e => e.style.display != "none");
+                    if(notEmpty) {
+                        moduleElement.style.display = "";
+                    }
+                    else {
+                        moduleElement.style.display = "none";
+                    }
                 }
             }
         })];
