@@ -2,30 +2,35 @@
     display: flex;
     height: 100%; // for overflow and scrolling to work
     $spacing: 1em;
-    .modules {
+    .module-panel {
         flex: 1;
         height: 100%;
         padding-right: $spacing;
-        overflow-y: scroll;
-        h1 {
-            display: flex;
-            .refresh-module {
-                align-self: center;
-                flex: 0; // this button should have a fixed size
-                i {
-                    margin-right: 1px;
+        display: flex;
+        flex-direction: column;
+        .modules {
+            flex: 1;
+            overflow-y: scroll;
+            h1 {
+                display: flex;
+                .refresh-module {
+                    align-self: center;
+                    flex: 0; // this button should have a fixed size
+                    i {
+                        margin-right: 1px;
+                    }
                 }
             }
-        }
-        h1, h2 {
-            position: sticky;
-            background: url(../../../ui/parchment.jpg) repeat;
-        }
-        h1 {
-            top: 0;
-        }
-        h2 {
-            top: 35px;
+            h1, h2 {
+                position: sticky;
+                background: url(../../../ui/parchment.jpg) repeat;
+            }
+            h1 {
+                top: 0;
+            }
+            h2 {
+                top: 35px;
+            }
         }
     }
     .panel {

@@ -240,6 +240,19 @@ class AssetLister extends FormApplication<FormApplicationOptions, AppData, {}> {
     async _updateObject(event: Event, formData: unknown) {
         log("_updateObject", formData);
     }
+
+    protected _createSearchFilters(): SearchFilter[] {
+        return [new SearchFilter({
+            contentSelector: ".modules .assets", inputSelector: ".filter", callback: function(event, typedText, rgx, parent) {
+                // TODO the type of the last parameter (parent) is wrong in the doc
+                for(let li of Array.from((parent as unknown as HTMLElement).children) as HTMLElement[]) {
+                    const name = li.querySelector(".name")!.textContent!;
+                    const match = rgx.test(SearchFilter.cleanQuery(name));
+                    li.style.display = match ? "" : "none";
+                }
+            }
+        })];
+    }
 }
 
 class ModuleSelector extends FormApplication<FormApplicationOptions, { existingModules: { [moduleName: string]: { module: Game.ModuleData<ModuleData>, selected: boolean } } }, string[]> {
