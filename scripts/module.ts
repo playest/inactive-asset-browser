@@ -363,16 +363,7 @@ class ModuleSelector extends FormApplication<FormApplicationOptions, { existingM
                     }
                 }
 
-                let hasScene: boolean;
-                if(packs.some(([k, v]) => v.assets.length !== 0)){
-                    hasScene = true;
-                }
-                else {
-                    hasScene = false;
-                }
-
-                log("has-scene", moduleName, hasScene, );
-
+                let hasScene: boolean = packs.some(([k, v]) => v.assets.length !== 0);
                 li.classList.toggle("has-scene", hasScene);
                 li.classList.toggle("no-scene", !hasScene);
             });
