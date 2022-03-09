@@ -37,22 +37,9 @@ interface AppData {
 }
 
 class AppDataClass implements AppData {
-    assetCollection: {
-        [moduleName: string]: {
-            title: string;
-            onePack: boolean;
-            packs: {
-                [packName: string]: {
-                    title: string;
-                    assets: Asset[];
-                };
-            };
-        };
-    } = {};
+    assetCollection: AppData["assetCollection"] = {};
 
-    constructor(private configManager: ConfigManager) {
-
-    }
+    constructor(private configManager: ConfigManager) { }
 
     addScene(moduleId: string, moduleTitle: string, packName: string, packTitle: string, asset: SceneDataConstructorData) {
         let module = this.assetCollection[moduleId];
@@ -87,8 +74,10 @@ class AppDataClass implements AppData {
         if(module === undefined) {
             throw new Error("Module not found: " + moduleId);
         }
-
-        this.assetCollection[moduleId].packs = {};
+        const module2 = this.assetCollection[moduleId];
+        if(module2 === undefined) {
+            this.addShalowModule(moduleId);
+        }
         for(const pack of await packsFromModule(module)) {
             for(const scene of scenesFromPackContent(pack.content)) {
                 this.addScene(module.id, module.data.title, pack.name, pack.title, scene);
@@ -353,6 +342,40 @@ class ModuleSelector extends FormApplication<FormApplicationOptions, { existingM
                 if(checkbox.closest<HTMLElement>("li")!.style.display !== "none") {
                     checkbox.checked = false;
                 }
+            });
+        });
+
+        html[0].querySelector<HTMLElement>(".scenes-only")!.addEventListener("click", function() {
+            this.closest("form")!.querySelectorAll<HTMLInputElement>('.module-list ul li').forEach(async li => {
+                const moduleName = li.dataset.moduleName!;
+                let module: typeof self.appData.assetCollection["modName"] | undefined = self.appData.assetCollection[moduleName];
+                let packs: [packName: string, pack: typeof self.appData.assetCollection["modName"]["packs"]["packName"]][];
+                if(module === undefined) {
+                    await self.appData.reindexModule(moduleName);
+                    module = self.appData.assetCollection[moduleName];
+                    packs = Object.entries(module.packs);
+                }
+                else {
+                    packs = Object.entries(module.packs);
+                    if(packs.length === 0) {
+                        await self.appData.reindexModule(moduleName);
+                        module = self.appData.assetCollection[moduleName];
+                        packs = Object.entries(module.packs);
+                    }
+                }
+
+                let hasScene: boolean;
+                if(packs.some(([k, v]) => v.assets.length !== 0)){
+                    hasScene = true;
+                }
+                else {
+                    hasScene = false;
+                }
+
+                log("has-scene", moduleName, hasScene, );
+
+                li.classList.toggle("has-scene", hasScene);
+                li.classList.toggle("no-scene", !hasScene);
             });
         });
 

@@ -59,6 +59,15 @@
                 label {
                     display: contents;
                 }
+                &.unkown-scene-status {
+                    background-color: grey;
+                }
+                &.has-scene {
+                    background-color: green;
+                }
+                &.no-scene {
+                    background-color: red;
+                }
             }
         }
     }

@@ -13,7 +13,7 @@
     <section class="module-list">
         <ul>
         {{#each existingModules as |module moduleName|}}
-            <li><label><input name="{{module.module.id}}" type="checkbox" {{#if module.selected}}checked{{/if}} /> <span class="title">{{module.module.data.title}}</span></label></li>
+            <li data-module-name="{{module.module.id}}" class="unkown-scene-status"><label><input name="{{module.module.id}}" type="checkbox" {{#if module.selected}}checked{{/if}} /> <span class="title">{{module.module.data.title}}</span></label></li>
         {{/each}}
         </ul>
     </section>
