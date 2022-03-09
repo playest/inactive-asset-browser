@@ -139,7 +139,7 @@ class ConfigManager {
             config: true,
             type: String,
             default: "alpha",
-            choices: {alpha: "alphabetical order", alphaReversed: "reverse alphabetical order", checkedFirst: "checked modules first"},
+            choices: { alpha: "alphabetical order", alphaReversed: "reverse alphabetical order", checkedFirst: "checked modules first" },
             onChange: (newValue) => log(`${this.keys.moduleSortOrder} changed to`, newValue)
         });
     }
@@ -226,7 +226,7 @@ class AssetLister extends FormApplication<FormApplicationOptions, AppData, {}> {
             let newScene = await Scene.create(asset.raw);
             assert(newScene != undefined);
             let tData = await newScene.createThumbnail();
-            await newScene.update({thumb: tData.thumb}); // force generating the thumbnail
+            await newScene.update({ thumb: tData.thumb }); // force generating the thumbnail
         });
 
         win.querySelectorAll<HTMLElement>(".asset").forEach(asset => asset.addEventListener("click", async (e) => {
@@ -252,7 +252,7 @@ class AssetLister extends FormApplication<FormApplicationOptions, AppData, {}> {
     }
 }
 
-class ModuleSelector extends FormApplication<FormApplicationOptions, {existingModules: {[moduleName: string]: {module: Game.ModuleData<ModuleData>, selected: boolean}}}, string[]> {
+class ModuleSelector extends FormApplication<FormApplicationOptions, { existingModules: { [moduleName: string]: { module: Game.ModuleData<ModuleData>, selected: boolean } } }, string[]> {
     constructor(private existingModules: Game.ModuleData<ModuleData>[], private appData: AppDataClass, private assetLister: AssetLister, private configManager: ConfigManager) {
         super([], { resizable: true, scrollY: [".module-list"], width: 500, height: Math.round(window.innerHeight / 2) });
         log("creating ModuleSelector window for", MODULE_NAME);
@@ -269,12 +269,12 @@ class ModuleSelector extends FormApplication<FormApplicationOptions, {existingMo
     }
 
     getData() {
-        const o: {[moduleName: string]: {module: Game.ModuleData<ModuleData>, selected: boolean}} = {};
+        const o: { [moduleName: string]: { module: Game.ModuleData<ModuleData>, selected: boolean } } = {};
         const selectedModules = this.configManager.getSelectedModules();
         for(const m of Array.from(this.existingModules)) {
-            o[m.id] = {module: m, selected: selectedModules.includes(m.id)};
+            o[m.id] = { module: m, selected: selectedModules.includes(m.id) };
         }
-        return {existingModules: o};
+        return { existingModules: o };
     }
 
     private static compareByTitle(a: Element, b: Element) {
@@ -373,17 +373,19 @@ class ModuleSelector extends FormApplication<FormApplicationOptions, {existingMo
     }
 
     protected _createSearchFilters(): SearchFilter[] {
-        return [new SearchFilter({contentSelector: ".module-list ul", inputSelector: ".filter", callback: function(event, typedText, rgx, parent) {
-            // TODO the type of the last parameter (parent) is wrong in the doc
-            for (let li of Array.from((parent as unknown as HTMLElement).children) as HTMLElement[]) {
-                const name = li.querySelector(".title")!.textContent!;
-                const match = rgx.test(SearchFilter.cleanQuery(name));
-                li.style.display = match ? "" : "none";
+        return [new SearchFilter({
+            contentSelector: ".module-list ul", inputSelector: ".filter", callback: function(event, typedText, rgx, parent) {
+                // TODO the type of the last parameter (parent) is wrong in the doc
+                for(let li of Array.from((parent as unknown as HTMLElement).children) as HTMLElement[]) {
+                    const name = li.querySelector(".title")!.textContent!;
+                    const match = rgx.test(SearchFilter.cleanQuery(name));
+                    li.style.display = match ? "" : "none";
+                }
             }
-        }})];
+        })];
     }
 
-    async _updateObject(event: Event, formData: {[moduleName: string]: boolean}) {
+    async _updateObject(event: Event, formData: { [moduleName: string]: boolean }) {
         log("_updateObject", formData);
         this.configManager.setSelectedModules(Object.entries(formData).filter(([k, v]) => v === true).map(([k, v]) => k));
         Object.entries(formData).forEach(([moduleName, selected]) => {
@@ -428,7 +430,7 @@ function scenesFromPackContent(content: string) {
 }
 
 async function packsFromModule(module: Game.ModuleData<ModuleData>) {
-    const packContents: {content: string, name: string, title: string}[] = [];
+    const packContents: { content: string, name: string, title: string }[] = [];
     let packCount = 0;
     for(const pack of module.packs) {
         if(packCount > 3) { // TODO remove before putting into prod, this is just for faster testing
@@ -438,7 +440,7 @@ async function packsFromModule(module: Game.ModuleData<ModuleData>) {
             const url = "modules/" + module.id + "/" + pack.path;
             const r = await fetch(url);
             const text = await r.text();
-            packContents.push({content: text, name: pack.name, title: pack.label});
+            packContents.push({ content: text, name: pack.name, title: pack.label });
             packCount++;
         }
     }
@@ -529,5 +531,18 @@ Hooks.once('ready', async function() {
     log("started");
     await indexAssets(true, null);
     log("appData ready", appData);
-    showMainWindow();
+});
+
+function addControls(html: HTMLElement) {
+    const wrapper = document.createElement("div");
+    wrapper.innerHTML = `<li class="scene-control ${MODULE_NAME}-scene-control" data-control="${MODULE_NAME}" title="${MODULE_NAME}"><i class="fas fa-map-signs"></i></li>`;
+    const btn = wrapper.firstChild!;
+    btn.addEventListener("click", () => showMainWindow());
+    html.querySelector(".main-controls")?.appendChild(btn);
+}
+
+Hooks.on<Hooks.RenderApplication<SceneControls>>('renderSceneControls', (sceneControls, html, data) => {
+    if(game.user?.isGM ?? false) {
+        addControls(html[0]);
+    }
 });
