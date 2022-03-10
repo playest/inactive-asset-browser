@@ -194,47 +194,55 @@ class AssetLister extends FormApplication<FormApplicationOptions, AppData, {}> {
         return this.data;
     }
 
+    async onReIndex() {
+        log("Re-Index!!!");
+        appData.clearCache();
+        await indexAssets(false, info => log(new Date(), info));
+        log("Start rendering after indexing", new Date());
+        await this._render();
+        log("Finished rendering after indexing", new Date());
+    }
+
+    async onAddScene() {
+        log("adding", this.currentAsset);
+        assert(this.currentAsset != null);
+        const asset = this.data.assetCollection[this.currentAsset.moduleName].packs[this.currentAsset.packName].assets[this.currentAsset.assetNumber];
+        log(asset);
+        let newScene = await Scene.create(asset.raw);
+        assert(newScene != undefined);
+        let tData = await newScene.createThumbnail();
+        await newScene.update({ thumb: tData.thumb }); // force generating the thumbnail
+    }
+
+    onAssetClick(win: HTMLElement, asset: HTMLElement) {
+        log("asset click", asset);
+        assert(asset.dataset.moduleName != undefined);
+        assert(asset.dataset.packName != undefined);
+        assert(asset.dataset.assetName != undefined);
+        assert(asset.dataset.assetNumber != undefined);
+        win.querySelector(".panel .asset-view")!.innerHTML = `${asset.dataset.moduleName}.${asset.dataset.packName}/${asset.dataset.assetName}`
+        this.currentAsset = { moduleName: asset.dataset.moduleName, packName: asset.dataset.packName, assetNumber: parseInt(asset.dataset.assetNumber, 10) };
+    }
+
+    async onRefreshModule(btn: HTMLElement) {
+        const h1 = btn.closest("h1")!;
+        log("refresh", h1);
+        await this.data.reindexModule(h1.dataset.moduleName!);
+        this.render();
+    }
+
     activateListeners(html: JQuery<HTMLElement>) {
         super.activateListeners(html);
         const win = html[0];
-        win.querySelector(".re-index")!.addEventListener("click", async () => {
-            log("Re-Index!!!");
-            appData.clearCache();
-            await indexAssets(false, info => log(new Date(), info));
-            log("Start rendering after indexing", new Date());
-            await this._render();
-            log("Finished rendering after indexing", new Date());
-        });
+        win.querySelector(".re-index")!.addEventListener("click", () => this.onReIndex());
 
         win.querySelector(".select-modules")!.addEventListener("click", () => showModuleSelectorWindow());
 
-        win.querySelector(".add-scene")!.addEventListener("click", async () => {
-            log("adding", this.currentAsset);
-            assert(this.currentAsset != null);
-            const asset = this.data.assetCollection[this.currentAsset.moduleName].packs[this.currentAsset.packName].assets[this.currentAsset.assetNumber];
-            log(asset);
-            let newScene = await Scene.create(asset.raw);
-            assert(newScene != undefined);
-            let tData = await newScene.createThumbnail();
-            await newScene.update({ thumb: tData.thumb }); // force generating the thumbnail
-        });
+        win.querySelector(".add-scene")!.addEventListener("click", () => this.onAddScene());
 
-        win.querySelectorAll<HTMLElement>(".asset").forEach(asset => asset.addEventListener("click", async (e) => {
-            log("asset click", e, asset);
-            assert(asset.dataset.moduleName != undefined);
-            assert(asset.dataset.packName != undefined);
-            assert(asset.dataset.assetName != undefined);
-            assert(asset.dataset.assetNumber != undefined);
-            win.querySelector(".panel .asset-view")!.innerHTML = `${asset.dataset.moduleName}.${asset.dataset.packName}/${asset.dataset.assetName}`
-            this.currentAsset = { moduleName: asset.dataset.moduleName, packName: asset.dataset.packName, assetNumber: parseInt(asset.dataset.assetNumber, 10) };
-        }));
+        win.querySelectorAll<HTMLElement>(".asset").forEach(asset => asset.addEventListener("click", (e) => this.onAssetClick(win, asset)));
 
-        win.querySelectorAll<HTMLElement>(".refresh-module")!.forEach(btn => btn.addEventListener("click", async () => {
-            const h1 = btn.closest("h1")!;
-            log("refresh", h1);
-            await this.data.reindexModule(h1.dataset.moduleName!);
-            this.render();
-        }));
+        win.querySelectorAll<HTMLElement>(".refresh-module")!.forEach(btn => btn.addEventListener("click", () => this.onRefreshModule(btn)));
     }
 
     async _updateObject(event: Event, formData: unknown) {
