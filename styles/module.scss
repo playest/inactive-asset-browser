@@ -40,6 +40,10 @@
         width: 200px;
         padding-left: $spacing;
         border-left: 1px solid var(--color-border-light-primary);
+        .keywords {
+            padding-bottom: $spacing;
+            padding-top: $spacing;
+        }
     }
 }
 
