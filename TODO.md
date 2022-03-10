@@ -7,3 +7,4 @@
 - x filter out modules that don't contain scenes
 - check dependencies of modules and scenes
 - save index on drive
+- choose size of assets (in window)
