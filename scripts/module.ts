@@ -344,14 +344,18 @@ class AssetLister extends FormApplication<FormApplicationOptions, AppData, {}> {
         await newScene.update({ thumb: tData.thumb }); // force generating the thumbnail
     }
 
-    private onAssetClick(win: HTMLElement, asset: HTMLElement) {
-        log("asset click", asset);
-        assert(asset.dataset.moduleName != undefined);
-        assert(asset.dataset.packName != undefined);
-        assert(asset.dataset.assetName != undefined);
-        assert(asset.dataset.assetNumber != undefined);
-        win.querySelector(".panel .asset-view")!.innerHTML = `${asset.dataset.moduleName}.${asset.dataset.packName}/${asset.dataset.assetName}`
-        this.currentAsset = { moduleName: asset.dataset.moduleName, packName: asset.dataset.packName, assetNumber: parseInt(asset.dataset.assetNumber, 10) };
+    private onAssetClick(win: HTMLElement, assetElement: HTMLElement) {
+        log("asset click", assetElement);
+        assert(assetElement.dataset.moduleName != undefined);
+        assert(assetElement.dataset.packName != undefined);
+        assert(assetElement.dataset.assetName != undefined);
+        assert(assetElement.dataset.assetNumber != undefined);
+        const asset = this.data.assetCollection[assetElement.dataset.moduleName].packs[assetElement.dataset.packName].assets[parseInt(assetElement.dataset.assetNumber, 10)];
+        const container = document.createElement("div");
+        container.innerHTML = `<div>${assetElement.dataset.moduleName}.${assetElement.dataset.packName}/${assetElement.dataset.assetName}</div>
+        <div><img src="${asset.img}" /></div>`
+        win.querySelector(".panel .asset-view")!.replaceChildren(container);
+        this.currentAsset = { moduleName: assetElement.dataset.moduleName, packName: assetElement.dataset.packName, assetNumber: parseInt(assetElement.dataset.assetNumber, 10) };
     }
 
     private async onRefreshModule(btn: HTMLElement) {
