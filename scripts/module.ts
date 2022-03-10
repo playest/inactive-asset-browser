@@ -358,23 +358,24 @@ class ModuleSelector extends FormApplication<FormApplicationOptions, { existingM
 
     activateListeners(html: JQuery<HTMLElement>) {
         super.activateListeners(html);
+        const win = html[0];
         const self = this;
-        html[0].querySelector<HTMLElement>(".sort-selected")!.addEventListener("click", function() {
+        win.querySelector<HTMLElement>(".sort-selected")!.addEventListener("click", function() {
             self.sortModulesByChecked(this);
             self.configManager.setModuleSortOrder("checkedFirst");
         });
 
-        html[0].querySelector<HTMLElement>(".sort-alpha")!.addEventListener("click", function() {
+        win.querySelector<HTMLElement>(".sort-alpha")!.addEventListener("click", function() {
             self.sortModulesByAlpha(this);
             self.configManager.setModuleSortOrder("alpha");
         });
 
-        html[0].querySelector<HTMLElement>(".sort-alpha-reverse")!.addEventListener("click", function() {
+        win.querySelector<HTMLElement>(".sort-alpha-reverse")!.addEventListener("click", function() {
             self.sortModulesByAlphaReversed(this);
             self.configManager.setModuleSortOrder("alphaReversed");
         });
 
-        html[0].querySelector<HTMLElement>(".check-all")!.addEventListener("click", function() {
+        win.querySelector<HTMLElement>(".check-all")!.addEventListener("click", function() {
             const moduleList = this.closest("form")!.querySelectorAll<HTMLInputElement>('.module-list ul input[type="checkbox"]').forEach(checkbox => {
                 const li = checkbox.closest<HTMLElement>("li")!;
                 if(li.style.display !== "none" && getComputedStyle(li).display !== "none") {
@@ -383,7 +384,7 @@ class ModuleSelector extends FormApplication<FormApplicationOptions, { existingM
             });
         });
 
-        html[0].querySelector<HTMLElement>(".check-none")!.addEventListener("click", function() {
+        win.querySelector<HTMLElement>(".check-none")!.addEventListener("click", function() {
             const moduleList = this.closest("form")!.querySelectorAll<HTMLInputElement>('.module-list ul input[type="checkbox"]').forEach(checkbox => {
                 if(checkbox.closest<HTMLElement>("li")!.style.display !== "none") {
                     checkbox.checked = false;
@@ -391,8 +392,8 @@ class ModuleSelector extends FormApplication<FormApplicationOptions, { existingM
             });
         });
 
-        html[0].querySelector<HTMLElement>("button.show-only-modules-with-scenes")!.addEventListener("click", function() {
-            html[0].classList.add("show-only-modules-with-scenes");
+        win.querySelector<HTMLElement>("button.show-only-modules-with-scenes")!.addEventListener("click", function() {
+            win.classList.add("show-only-modules-with-scenes");
             this.closest("form")!.querySelectorAll<HTMLInputElement>('.module-list ul li').forEach(async li => {
                 const moduleName = li.dataset.moduleName!;
                 let module: typeof self.appData.assetCollection["modName"] | undefined = self.appData.assetCollection[moduleName];
@@ -415,20 +416,20 @@ class ModuleSelector extends FormApplication<FormApplicationOptions, { existingM
             });
         });
 
-        html[0].querySelector<HTMLElement>("button.show-all-modules")!.addEventListener("click", function() {
-            html[0].classList.remove("show-only-modules-with-scenes");
+        win.querySelector<HTMLElement>("button.show-all-modules")!.addEventListener("click", function() {
+            win.classList.remove("show-only-modules-with-scenes");
         });
 
         // TODO this is probably not the right place to do it, but I don't know where to actually do this
         const sortOrder = this.configManager.getModuleSortOrder();
         if(sortOrder === "alpha") {
-            this.sortModulesByAlpha(html[0].querySelector(".sort-alpha")!);
+            this.sortModulesByAlpha(win.querySelector(".sort-alpha")!);
         }
         else if(sortOrder === "alphaReversed") {
-            this.sortModulesByAlphaReversed(html[0].querySelector(".sort-alpha-reverse")!);
+            this.sortModulesByAlphaReversed(win.querySelector(".sort-alpha-reverse")!);
         }
         else if(sortOrder === "checkedFirst") {
-            this.sortModulesByChecked(html[0].querySelector(".sort-selected")!);
+            this.sortModulesByChecked(win.querySelector(".sort-selected")!);
         }
         else {
             assertNever(sortOrder);
