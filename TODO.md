@@ -9,3 +9,4 @@
 - x save index on drive
 - choose size of assets (in window)
 - show progress of indexing
+- do not identify asset only by their index, maybe by their title and/or their image
