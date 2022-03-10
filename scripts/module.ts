@@ -1,4 +1,5 @@
 import { SceneData, SceneDataConstructorData, SceneDataProperties } from "@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/data/data.mjs/sceneData";
+import { isBase64Image } from "@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/data/validators.mjs";
 import { ModuleData } from "@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/packages.mjs/moduleData";
 
 const MODULE_NAME = "inactive-asset-browser";
@@ -40,6 +41,10 @@ class AppDataClass implements AppData {
     assetCollection: AppData["assetCollection"] = {};
 
     constructor(private configManager: ConfigManager) { }
+
+    loadCache() {
+        return fetch(`${MODULE_NAME}/cache.json`).then(s => s.json() as Promise<typeof this.assetCollection>).then(ac => { this.assetCollection = ac; }).catch();
+    }
 
     addScene(moduleId: string, moduleTitle: string, packName: string, packTitle: string, packPath: string, asset: SceneDataConstructorData) {
         let module = this.assetCollection[moduleId];
@@ -143,7 +148,9 @@ class AppDataClass implements AppData {
             info.message = `Module ${module.id} finished`;
             updater?.(info);
         }
-        this.saveCache();
+        if(!shalow) {
+            this.saveCache();
+        }
         log("indexAssets.appData", this);
     }
 
@@ -151,11 +158,62 @@ class AppDataClass implements AppData {
         this.assetCollection = {};
     }
 
-    saveCache() {
+    private async convertThumbs() {
+        try {
+            await FilePicker.createDirectory("data", `${MODULE_NAME}/thumbs`);
+        }
+        catch(e) {
+            log("thumbs directory already exists", e);
+        }
+        for(const [moduleId, module] of Object.entries(this.assetCollection)) {
+            for(const [packId, pack] of Object.entries(module.packs)) {
+                for(const [assetIndex, asset] of pack.assets.entries()) {
+                    if(asset.thumb && asset.thumb.startsWith("data:")) {
+                        const dataUrl = asset.thumb;
+                        let ext: string | null = null;
+                        const fileNameWithoutExt = `${moduleId}.${packId}.${assetIndex}`;
+                        if(asset.thumb.startsWith("data:image/png")) {
+                            ext = "png";
+                        }
+                        else if(asset.thumb.startsWith("data:image/jpg")) {
+                            ext = "jpg";
+                        }
+                        else {
+                            log("Could not deduce ext for", fileNameWithoutExt, asset.thumb.substring(0, 20));
+                        }
+
+                        if(ext) {
+                            const dirPath = `${MODULE_NAME}/thumbs`;
+                            const fileName = `${fileNameWithoutExt}.${ext}`;
+                            asset.thumb = `${dirPath}/${fileName}`;
+                            const blob = await dataUrlToFile(dataUrl);
+                            const file = new File([blob], fileName, { type: 'application/json' });
+                            await FilePicker.upload("data", dirPath, file, {});
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    async saveCache() {
+        try {
+            await FilePicker.createDirectory("data", MODULE_NAME);
+        }
+        catch(e) {
+            log("Cannot create dir", MODULE_NAME, e);
+        }
+        await this.convertThumbs();
         const blob = new Blob([JSON.stringify(this.assetCollection, null, 1)], { type: 'application/json' });
         const file = new File([blob], "cache.json", { type: 'application/json' });
-        FilePicker.upload("data", `modules/${MODULE_NAME}`, file, {});
+        FilePicker.upload("data", MODULE_NAME, file, {});
     }
+}
+
+export async function dataUrlToFile(dataUrl: string): Promise<Blob> {
+    const res: Response = await fetch(dataUrl);
+    const blob: Blob = await res.blob();
+    return blob;
 }
 
 function assert(cond: boolean): asserts cond {
@@ -245,6 +303,7 @@ class AssetLister extends FormApplication<FormApplicationOptions, AppData, {}> {
             height: Math.round(window.innerHeight / 2)
         });
         log("creating window for", MODULE_NAME);
+        this.data.loadCache().then(() => this.render(true));
     }
 
     static get defaultOptions() {
@@ -264,7 +323,7 @@ class AssetLister extends FormApplication<FormApplicationOptions, AppData, {}> {
     private async onReIndex() {
         log("Re-Index!!!");
         appData.clearCache();
-        await appData.reindexModules(false, info => log(new Date(), info));
+        await this.data.reindexModules(false, info => log(new Date(), info));
         log("Start rendering after indexing", new Date());
         await this._render();
         log("Finished rendering after indexing", new Date());
@@ -315,7 +374,7 @@ class AssetLister extends FormApplication<FormApplicationOptions, AppData, {}> {
 
         win.querySelectorAll<HTMLElement>(".refresh-module")!.forEach(btn => btn.addEventListener("click", () => this.onRefreshModule(btn)));
 
-        win.querySelector<HTMLInputElement>(".keywords input")!.addEventListener("input",function() {
+        win.querySelector<HTMLInputElement>(".keywords input")!.addEventListener("input", function() {
             log("keywords changed", this.value);
         });
     }
@@ -544,7 +603,7 @@ class ModuleSelector extends FormApplication<FormApplicationOptions, { existingM
 }
 
 let assetLister: AssetLister | null = null;
-function showMainWindow() {
+async function showMainWindow() {
     assetLister = new AssetLister(appData);
     assetLister.render(true);
 }
