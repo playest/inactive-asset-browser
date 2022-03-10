@@ -194,7 +194,7 @@ class AssetLister extends FormApplication<FormApplicationOptions, AppData, {}> {
         return this.data;
     }
 
-    async onReIndex() {
+    private async onReIndex() {
         log("Re-Index!!!");
         appData.clearCache();
         await indexAssets(false, info => log(new Date(), info));
@@ -203,7 +203,7 @@ class AssetLister extends FormApplication<FormApplicationOptions, AppData, {}> {
         log("Finished rendering after indexing", new Date());
     }
 
-    async onAddScene() {
+    private async onAddScene() {
         log("adding", this.currentAsset);
         assert(this.currentAsset != null);
         const asset = this.data.assetCollection[this.currentAsset.moduleName].packs[this.currentAsset.packName].assets[this.currentAsset.assetNumber];
@@ -214,7 +214,7 @@ class AssetLister extends FormApplication<FormApplicationOptions, AppData, {}> {
         await newScene.update({ thumb: tData.thumb }); // force generating the thumbnail
     }
 
-    onAssetClick(win: HTMLElement, asset: HTMLElement) {
+    private onAssetClick(win: HTMLElement, asset: HTMLElement) {
         log("asset click", asset);
         assert(asset.dataset.moduleName != undefined);
         assert(asset.dataset.packName != undefined);
@@ -224,7 +224,7 @@ class AssetLister extends FormApplication<FormApplicationOptions, AppData, {}> {
         this.currentAsset = { moduleName: asset.dataset.moduleName, packName: asset.dataset.packName, assetNumber: parseInt(asset.dataset.assetNumber, 10) };
     }
 
-    async onRefreshModule(btn: HTMLElement) {
+    private async onRefreshModule(btn: HTMLElement) {
         const h1 = btn.closest("h1")!;
         log("refresh", h1);
         await this.data.reindexModule(h1.dataset.moduleName!);
