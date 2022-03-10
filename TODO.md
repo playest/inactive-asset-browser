@@ -1,6 +1,6 @@
 - x Reindex one module
 - x manage which modules are displayed
-- preview asset in big
+- x preview asset in big
 - add keyword to asset
 - add description to asset
 - favourite asset
