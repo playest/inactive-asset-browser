@@ -8,6 +8,9 @@
         padding-right: $spacing;
         display: flex;
         flex-direction: column;
+        header {
+            margin-bottom: $spacing;
+        }
         .modules {
             flex: 1;
             overflow-y: scroll;
