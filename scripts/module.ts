@@ -144,6 +144,7 @@ class AppDataClass implements AppData {
             info.message = `Module ${module.id} finished`;
             updater?.(info);
         }
+        this.saveCache();
         log("indexAssets.appData", this);
     }
 
