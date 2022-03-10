@@ -243,6 +243,10 @@ class AssetLister extends FormApplication<FormApplicationOptions, AppData, {}> {
         win.querySelectorAll<HTMLElement>(".asset").forEach(asset => asset.addEventListener("click", (e) => this.onAssetClick(win, asset)));
 
         win.querySelectorAll<HTMLElement>(".refresh-module")!.forEach(btn => btn.addEventListener("click", () => this.onRefreshModule(btn)));
+
+        win.querySelector<HTMLInputElement>(".keywords input")!.addEventListener("input",function() {
+            log("keywords changed", this.value);
+        });
     }
 
     async _updateObject(event: Event, formData: unknown) {
