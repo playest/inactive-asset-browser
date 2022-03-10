@@ -83,11 +83,78 @@ class AppDataClass implements AppData {
                 this.addScene(module.id, module.data.title, pack.name, pack.title, scene);
             }
         }
+        this.saveCache();
         return this.assetCollection[moduleId];
+    }
+
+    async reindexModules(shalow: boolean, updater: IndexUpdateCallback | null) {
+        const selectedModules = configManager.getSelectedModules();
+        const info: IndexUpdateInfo = {
+            message: null,
+            existing: {
+                modules: {
+                    found: selectedModules.length,
+                    finished: 0,
+                },
+                packs: {
+                    found: 0,
+                    finished: 0,
+                },
+                assets: {
+                    found: 0,
+                    finished: 0,
+                },
+            },
+        };
+        info.message = `Starting indexing ${info.existing.modules.found} modules`;
+        updater?.(info);
+        for(const [name, module] of game.modules.entries()) {
+            if(selectedModules.includes(name)) {
+                if(!shalow) {
+                    const packs = await packsFromModule(module);
+                    info.existing.packs.found += packs.length;
+                    info.message = `Found ${info.existing.packs.found} packs in ${module.data.name}`;
+                    updater?.(info);
+                    for(const pack of packs) {
+                        const scenes = scenesFromPackContent(pack.content);
+                        info.existing.assets.found += scenes.length;
+                        info.message = `Found ${info.existing.assets.found} assets in ${pack.name}`;
+                        updater?.(info);
+                        let sceneIndex = 0;
+                        for(const scene of scenes) {
+                            this.addScene(module.id, module.data.title, pack.name, pack.title, scene);
+                            info.existing.assets.finished++;
+                            info.message = `Asset ${sceneIndex} finished`;
+                            updater?.(info);
+                            sceneIndex++;
+                        }
+                        info.existing.packs.finished++;
+                        info.message = `Pack ${pack.name} finished`;
+                        updater?.(info);
+                    }
+                }
+                else {
+                    this.addShalowModule(module.id);
+                }
+            }
+            else {
+                //log("ignore module", name);
+            }
+            info.existing.modules.finished++;
+            info.message = `Module ${module.id} finished`;
+            updater?.(info);
+        }
+        log("indexAssets.appData", this);
     }
 
     clearCache() {
         this.assetCollection = {};
+    }
+
+    saveCache() {
+        const blob = new Blob([JSON.stringify(this.assetCollection, null, 1)], { type: 'application/json' });
+        const file = new File([blob], "cache.json", { type: 'application/json' });
+        FilePicker.upload("data", `modules/${MODULE_NAME}`, file, {});
     }
 }
 
@@ -197,7 +264,7 @@ class AssetLister extends FormApplication<FormApplicationOptions, AppData, {}> {
     private async onReIndex() {
         log("Re-Index!!!");
         appData.clearCache();
-        await indexAssets(false, info => log(new Date(), info));
+        await appData.reindexModules(false, info => log(new Date(), info));
         log("Start rendering after indexing", new Date());
         await this._render();
         log("Finished rendering after indexing", new Date());
@@ -542,69 +609,9 @@ type IndexUpdateInfo = {
 
 type IndexUpdateCallback = (info: IndexUpdateInfo) => void;
 
-async function indexAssets(shalow: boolean, updater: IndexUpdateCallback | null) {
-    const selectedModules = configManager.getSelectedModules();
-    const info: IndexUpdateInfo = {
-        message: null,
-        existing: {
-            modules: {
-                found: selectedModules.length,
-                finished: 0,
-            },
-            packs: {
-                found: 0,
-                finished: 0,
-            },
-            assets: {
-                found: 0,
-                finished: 0,
-            },
-        },
-    };
-    info.message = `Starting indexing ${info.existing.modules.found} modules`;
-    updater?.(info);
-    for(const [name, module] of game.modules.entries()) {
-        if(selectedModules.includes(name)) {
-            if(!shalow) {
-                const packs = await packsFromModule(module);
-                info.existing.packs.found += packs.length;
-                info.message = `Found ${info.existing.packs.found} packs in ${module.data.name}`;
-                updater?.(info);
-                for(const pack of packs) {
-                    const scenes = scenesFromPackContent(pack.content);
-                    info.existing.assets.found += scenes.length;
-                    info.message = `Found ${info.existing.assets.found} assets in ${pack.name}`;
-                    updater?.(info);
-                    let sceneIndex = 0;
-                    for(const scene of scenes) {
-                        appData.addScene(module.id, module.data.title, pack.name, pack.title, scene);
-                        info.existing.assets.finished++;
-                        info.message = `Asset ${sceneIndex} finished`;
-                        updater?.(info);
-                        sceneIndex++;
-                    }
-                    info.existing.packs.finished++;
-                    info.message = `Pack ${pack.name} finished`;
-                    updater?.(info);
-                }
-            }
-            else {
-                appData.addShalowModule(module.id);
-            }
-        }
-        else {
-            //log("ignore module", name);
-        }
-        info.existing.modules.finished++;
-        info.message = `Module ${module.id} finished`;
-        updater?.(info);
-    }
-    log("indexAssets.appData", appData);
-}
-
 Hooks.once('ready', async function() {
     log("started");
-    await indexAssets(true, null);
+    appData.reindexModules(true, null);
     log("appData ready", appData);
 });
 
