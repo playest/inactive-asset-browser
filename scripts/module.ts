@@ -356,6 +356,48 @@ class ModuleSelector extends FormApplication<FormApplicationOptions, { existingM
         Array.from(moduleList.children).sort((a, b) => -1 * ModuleSelector.compareByTitle(a, b)).forEach(node => moduleList.appendChild(node));
     }
 
+    private onCheckAll(base: HTMLElement) {
+        const moduleList = base.closest("form")!.querySelectorAll<HTMLInputElement>('.module-list ul input[type="checkbox"]').forEach(checkbox => {
+            const li = checkbox.closest<HTMLElement>("li")!;
+            if(li.style.display !== "none" && getComputedStyle(li).display !== "none") {
+                checkbox.checked = true;
+            }
+        });
+    }
+
+    private onCheckNone(base: HTMLElement) {
+        const moduleList = base.closest("form")!.querySelectorAll<HTMLInputElement>('.module-list ul input[type="checkbox"]').forEach(checkbox => {
+            if(checkbox.closest<HTMLElement>("li")!.style.display !== "none") {
+                checkbox.checked = false;
+            }
+        });
+    }
+
+    private onShowOnlyModulesWithScenes(win: HTMLElement, base: HTMLElement) {
+        win.classList.add("show-only-modules-with-scenes");
+        base.closest("form")!.querySelectorAll<HTMLInputElement>('.module-list ul li').forEach(async li => {
+            const moduleName = li.dataset.moduleName!;
+            let module: typeof this.appData.assetCollection["modName"] | undefined = this.appData.assetCollection[moduleName];
+            let packs: [packName: string, pack: typeof this.appData.assetCollection["modName"]["packs"]["packName"]][];
+            if(module === undefined) {
+                module = await this.appData.reindexModule(moduleName);
+                packs = Object.entries(module.packs);
+            }
+            else {
+                packs = Object.entries(module.packs);
+                if(packs.length === 0) {
+                    module = await this.appData.reindexModule(moduleName);
+                    packs = Object.entries(module.packs);
+                }
+            }
+
+            let hasScene: boolean = packs.some(([k, v]) => v.assets.length !== 0);
+            li.classList.remove("unkown-scene-status");
+            li.classList.toggle("has-scene", hasScene);
+            li.classList.toggle("no-scene", !hasScene);
+        });
+    }
+
     activateListeners(html: JQuery<HTMLElement>) {
         super.activateListeners(html);
         const win = html[0];
@@ -375,47 +417,11 @@ class ModuleSelector extends FormApplication<FormApplicationOptions, { existingM
             self.configManager.setModuleSortOrder("alphaReversed");
         });
 
-        win.querySelector<HTMLElement>(".check-all")!.addEventListener("click", function() {
-            const moduleList = this.closest("form")!.querySelectorAll<HTMLInputElement>('.module-list ul input[type="checkbox"]').forEach(checkbox => {
-                const li = checkbox.closest<HTMLElement>("li")!;
-                if(li.style.display !== "none" && getComputedStyle(li).display !== "none") {
-                    checkbox.checked = true;
-                }
-            });
-        });
+        win.querySelector<HTMLElement>(".check-all")!.addEventListener("click", function() { self.onCheckAll(this); });
 
-        win.querySelector<HTMLElement>(".check-none")!.addEventListener("click", function() {
-            const moduleList = this.closest("form")!.querySelectorAll<HTMLInputElement>('.module-list ul input[type="checkbox"]').forEach(checkbox => {
-                if(checkbox.closest<HTMLElement>("li")!.style.display !== "none") {
-                    checkbox.checked = false;
-                }
-            });
-        });
+        win.querySelector<HTMLElement>(".check-none")!.addEventListener("click", function() { self.onCheckNone(this); });
 
-        win.querySelector<HTMLElement>("button.show-only-modules-with-scenes")!.addEventListener("click", function() {
-            win.classList.add("show-only-modules-with-scenes");
-            this.closest("form")!.querySelectorAll<HTMLInputElement>('.module-list ul li').forEach(async li => {
-                const moduleName = li.dataset.moduleName!;
-                let module: typeof self.appData.assetCollection["modName"] | undefined = self.appData.assetCollection[moduleName];
-                let packs: [packName: string, pack: typeof self.appData.assetCollection["modName"]["packs"]["packName"]][];
-                if(module === undefined) {
-                    module = await self.appData.reindexModule(moduleName);
-                    packs = Object.entries(module.packs);
-                }
-                else {
-                    packs = Object.entries(module.packs);
-                    if(packs.length === 0) {
-                        module = await self.appData.reindexModule(moduleName);
-                        packs = Object.entries(module.packs);
-                    }
-                }
-
-                let hasScene: boolean = packs.some(([k, v]) => v.assets.length !== 0);
-                li.classList.remove("unkown-scene-status");
-                li.classList.toggle("has-scene", hasScene);
-                li.classList.toggle("no-scene", !hasScene);
-            });
-        });
+        win.querySelector<HTMLElement>("button.show-only-modules-with-scenes")!.addEventListener("click", function() { self.onShowOnlyModulesWithScenes(win, this); });
 
         win.querySelector<HTMLElement>("button.show-all-modules")!.addEventListener("click", function() {
             win.classList.remove("show-only-modules-with-scenes");
