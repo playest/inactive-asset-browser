@@ -18,7 +18,6 @@ interface Asset {
     name: string,
     img: string | null | undefined, // we should probably exclude those without image
     thumb: string | null | undefined,
-    raw: SceneDataConstructorData,
 }
 
 interface AppData {
@@ -29,6 +28,7 @@ interface AppData {
             packs: {
                 [packName: string]: {
                     title: string,
+                    path: string,
                     assets: Asset[],
                 }
             }
@@ -41,7 +41,7 @@ class AppDataClass implements AppData {
 
     constructor(private configManager: ConfigManager) { }
 
-    addScene(moduleId: string, moduleTitle: string, packName: string, packTitle: string, asset: SceneDataConstructorData) {
+    addScene(moduleId: string, moduleTitle: string, packName: string, packTitle: string, packPath: string, asset: SceneDataConstructorData) {
         let module = this.assetCollection[moduleId];
         if(module === undefined) {
             module = { title: moduleTitle, onePack: false, packs: {} };
@@ -49,14 +49,13 @@ class AppDataClass implements AppData {
         }
         let packInModule = module.packs[packName];
         if(packInModule === undefined) {
-            packInModule = { title: packTitle, assets: [] };
+            packInModule = { title: packTitle, path: packPath, assets: [] };
             module.packs[packName] = packInModule;
         }
         packInModule.assets.push({
             name: asset.name,
             img: asset.img,
             thumb: asset.thumb,
-            raw: asset,
         });
         module.onePack = Object.keys(module.packs).length == 1;
     }
@@ -80,7 +79,7 @@ class AppDataClass implements AppData {
         }
         for(const pack of await packsFromModule(module)) {
             for(const scene of scenesFromPackContent(pack.content)) {
-                this.addScene(module.id, module.data.title, pack.name, pack.title, scene);
+                this.addScene(module.id, module.data.title, pack.name, pack.title, pack.path, scene);
             }
         }
         this.saveCache();
@@ -122,7 +121,7 @@ class AppDataClass implements AppData {
                         updater?.(info);
                         let sceneIndex = 0;
                         for(const scene of scenes) {
-                            this.addScene(module.id, module.data.title, pack.name, pack.title, scene);
+                            this.addScene(module.id, module.data.title, pack.name, pack.title, pack.path, scene);
                             info.existing.assets.finished++;
                             info.message = `Asset ${sceneIndex} finished`;
                             updater?.(info);
@@ -274,9 +273,13 @@ class AssetLister extends FormApplication<FormApplicationOptions, AppData, {}> {
     private async onAddScene() {
         log("adding", this.currentAsset);
         assert(this.currentAsset != null);
-        const asset = this.data.assetCollection[this.currentAsset.moduleName].packs[this.currentAsset.packName].assets[this.currentAsset.assetNumber];
+        const pack = this.data.assetCollection[this.currentAsset.moduleName].packs[this.currentAsset.packName];
+        const asset = pack.assets[this.currentAsset.assetNumber];
         log(asset);
-        let newScene = await Scene.create(asset.raw);
+        const rawPack = await getPackContent(this.currentAsset.moduleName, pack.path);
+        const fullAsset = sceneFromPackContent(rawPack, this.currentAsset.assetNumber);
+        assert(fullAsset != undefined);
+        let newScene = await Scene.create(fullAsset);
         assert(newScene != undefined);
         let tData = await newScene.createThumbnail();
         await newScene.update({ thumb: tData.thumb }); // force generating the thumbnail
@@ -572,18 +575,40 @@ function scenesFromPackContent(content: string) {
     return scenes;
 }
 
+function sceneFromPackContent(content: string, index: number): SceneDataConstructorData | undefined {
+    const lines = content.split(/\r?\n/);
+    let assetCount = 0;
+    for(const line of lines) {
+        if(line !== "") {
+            const o = JSON.parse(line) as SceneDataConstructorData;
+            if(o.name !== '#[CF_tempEntity]') {
+                if(index === assetCount) {
+                    return o;
+                }
+                assetCount++;
+            }
+        }
+    }
+    return undefined;
+}
+
+async function getPackContent(moduleId: string, packPath: string) {
+    const url = "modules/" + moduleId + "/" + packPath;
+    const r = await fetch(url);
+    const text = await r.text();
+    return text;
+}
+
 async function packsFromModule(module: Game.ModuleData<ModuleData>) {
-    const packContents: { content: string, name: string, title: string }[] = [];
+    const packContents: { content: string, name: string, title: string, path: string }[] = [];
     let packCount = 0;
     for(const pack of module.packs) {
         if(packCount > 3) { // TODO remove before putting into prod, this is just for faster testing
             break;
         }
         if(pack.type == "Scene") {
-            const url = "modules/" + module.id + "/" + pack.path;
-            const r = await fetch(url);
-            const text = await r.text();
-            packContents.push({ content: text, name: pack.name, title: pack.label });
+            const text = await getPackContent(module.id, pack.path);
+            packContents.push({ content: text, name: pack.name, title: pack.label, path: pack.path });
             packCount++;
         }
     }
