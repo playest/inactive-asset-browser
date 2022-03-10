@@ -73,7 +73,7 @@ class AppDataClass implements AppData {
         }
     }
 
-    async reindexModule(moduleId: string) {
+    async reindexModule(moduleId: string, updater: ProgressViewer | null) {
         const module = game.modules.get(moduleId);
         if(module === undefined) {
             throw new Error("Module not found: " + moduleId);
@@ -87,7 +87,7 @@ class AppDataClass implements AppData {
                 this.addScene(module.id, module.data.title, pack.name, pack.title, pack.path, scene);
             }
         }
-        this.saveCache(new ProgressViewer());
+        this.saveCache(updater);
         return this.assetCollection[moduleId];
     }
 
@@ -404,7 +404,7 @@ class AssetLister extends FormApplication<FormApplicationOptions, AppData, {}> {
     private async onRefreshModule(btn: HTMLElement) {
         const h1 = btn.closest("h1")!;
         log("refresh", h1);
-        await this.data.reindexModule(h1.dataset.moduleName!);
+        await this.data.reindexModule(h1.dataset.moduleName!, new ProgressViewer());
         this.render();
     }
 
@@ -608,18 +608,19 @@ class ModuleSelector extends FormApplication<FormApplicationOptions, { existingM
 
     private onShowOnlyModulesWithScenes(win: HTMLElement, base: HTMLElement) {
         win.classList.add("show-only-modules-with-scenes");
+        const pv = null;
         base.closest("form")!.querySelectorAll<HTMLInputElement>('.module-list ul li').forEach(async li => {
             const moduleName = li.dataset.moduleName!;
             let module: typeof this.appData.assetCollection["modName"] | undefined = this.appData.assetCollection[moduleName];
             let packs: [packName: string, pack: typeof this.appData.assetCollection["modName"]["packs"]["packName"]][];
             if(module === undefined) {
-                module = await this.appData.reindexModule(moduleName);
+                module = await this.appData.reindexModule(moduleName, pv);
                 packs = Object.entries(module.packs);
             }
             else {
                 packs = Object.entries(module.packs);
                 if(packs.length === 0) {
-                    module = await this.appData.reindexModule(moduleName);
+                    module = await this.appData.reindexModule(moduleName, pv);
                     packs = Object.entries(module.packs);
                 }
             }
