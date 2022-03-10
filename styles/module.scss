@@ -97,3 +97,12 @@
         }
     }
 }
+
+.inactive-asset-browser.progress-viewer {
+    textarea, progress {
+        width: 100%;
+    }
+    textarea {
+        height: 6em;
+    }
+}

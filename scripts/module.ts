@@ -87,14 +87,21 @@ class AppDataClass implements AppData {
                 this.addScene(module.id, module.data.title, pack.name, pack.title, pack.path, scene);
             }
         }
-        this.saveCache();
+        this.saveCache(new ProgressViewer());
         return this.assetCollection[moduleId];
     }
 
-    async reindexModules(shalow: boolean, updater: IndexUpdateCallback | null) {
+    private static formatForProgressViewer(info: IndexUpdateInfo) {
+        const finished = info.existing.modules.finished + info.existing.packs.finished + info.existing.assets.finished;
+        const found = info.existing.modules.found + info.existing.packs.found + info.existing.assets.found;
+        return [finished, found, info.message, info] as const;
+    }
+
+    async reindexModules(shalow: boolean, updater: ProgressViewer | null) {
         const selectedModules = configManager.getSelectedModules();
         const info: IndexUpdateInfo = {
             message: null,
+            finished: false,
             existing: {
                 modules: {
                     found: selectedModules.length,
@@ -111,46 +118,50 @@ class AppDataClass implements AppData {
             },
         };
         info.message = `Starting indexing ${info.existing.modules.found} modules`;
-        updater?.(info);
+        updater?.update(...AppDataClass.formatForProgressViewer(info));
         for(const [name, module] of game.modules.entries()) {
             if(selectedModules.includes(name)) {
                 if(!shalow) {
                     const packs = await packsFromModule(module);
                     info.existing.packs.found += packs.length;
                     info.message = `Found ${info.existing.packs.found} packs in ${module.data.name}`;
-                    updater?.(info);
+                    updater?.update(...AppDataClass.formatForProgressViewer(info));
                     for(const pack of packs) {
                         const scenes = scenesFromPackContent(pack.content);
                         info.existing.assets.found += scenes.length;
                         info.message = `Found ${info.existing.assets.found} assets in ${pack.name}`;
-                        updater?.(info);
+                        updater?.update(...AppDataClass.formatForProgressViewer(info));
                         let sceneIndex = 0;
                         for(const scene of scenes) {
                             this.addScene(module.id, module.data.title, pack.name, pack.title, pack.path, scene);
                             info.existing.assets.finished++;
                             info.message = `Asset ${sceneIndex} finished`;
-                            updater?.(info);
+                            updater?.update(...AppDataClass.formatForProgressViewer(info));
                             sceneIndex++;
                         }
                         info.existing.packs.finished++;
                         info.message = `Pack ${pack.name} finished`;
-                        updater?.(info);
+                        updater?.update(...AppDataClass.formatForProgressViewer(info));
                     }
                 }
                 else {
                     this.addShalowModule(module.id);
                 }
+                info.existing.modules.finished++;
+                info.message = `Module ${module.id} finished`;
+                updater?.update(...AppDataClass.formatForProgressViewer(info));
             }
             else {
                 //log("ignore module", name);
             }
-            info.existing.modules.finished++;
-            info.message = `Module ${module.id} finished`;
-            updater?.(info);
         }
         if(!shalow) {
-            this.saveCache();
+            this.saveCache(updater);
         }
+
+        info.finished = true;
+        info.message = "Indexing finished";
+        updater?.update(...AppDataClass.formatForProgressViewer(info));
         log("indexAssets.appData", this);
     }
 
@@ -158,13 +169,33 @@ class AppDataClass implements AppData {
         this.assetCollection = {};
     }
 
-    private async convertThumbs() {
+    private async convertThumbs(progressViewer: ProgressViewer | null) {
         try {
             await FilePicker.createDirectory("data", `${MODULE_NAME}/thumbs`);
         }
         catch(e) {
             log("thumbs directory already exists", e);
         }
+
+        const info: IndexUpdateInfo = {
+            message: null,
+            finished: false,
+            existing: {
+                modules: {
+                    found: Object.keys(this.assetCollection).length,
+                    finished: 0,
+                },
+                packs: {
+                    found: Object.values(this.assetCollection).reduce((prev, cur) => prev + Object.keys(cur.packs).length, 0),
+                    finished: 0,
+                },
+                assets: {
+                    found: Object.values(this.assetCollection).reduce((prev, cur) => prev + Object.values(cur.packs).reduce((p, c) => p + c.assets.length, 0), 0),
+                    finished: 0,
+                },
+            },
+        };
+
         for(const [moduleId, module] of Object.entries(this.assetCollection)) {
             for(const [packId, pack] of Object.entries(module.packs)) {
                 for(const [assetIndex, asset] of pack.assets.entries()) {
@@ -185,25 +216,37 @@ class AppDataClass implements AppData {
                         if(ext) {
                             const dirPath = `${MODULE_NAME}/thumbs`;
                             const fileName = `${fileNameWithoutExt}.${ext}`;
+                            info.message = `Saved thumb ${fileName}`;
                             asset.thumb = `${dirPath}/${fileName}`;
                             const blob = await dataUrlToFile(dataUrl);
                             const file = new File([blob], fileName, { type: 'application/json' });
                             await FilePicker.upload("data", dirPath, file, {});
                         }
+                        else {
+                            info.message = null;
+                        }
                     }
+                    info.existing.assets.finished++;
+                    progressViewer?.update(...AppDataClass.formatForProgressViewer(info));
                 }
+                info.existing.packs.finished++;
+                info.message = `Finished thumbs for ${packId}`;
+                progressViewer?.update(...AppDataClass.formatForProgressViewer(info));
             }
+            info.existing.modules.finished++;
+            info.message = `Finished thumbs for ${moduleId}`;
+            progressViewer?.update(...AppDataClass.formatForProgressViewer(info));
         }
     }
 
-    async saveCache() {
+    async saveCache(progressViewer: ProgressViewer | null) {
         try {
             await FilePicker.createDirectory("data", MODULE_NAME);
         }
         catch(e) {
             log("Cannot create dir", MODULE_NAME, e);
         }
-        await this.convertThumbs();
+        await this.convertThumbs(progressViewer);
         const blob = new Blob([JSON.stringify(this.assetCollection, null, 1)], { type: 'application/json' });
         const file = new File([blob], "cache.json", { type: 'application/json' });
         FilePicker.upload("data", MODULE_NAME, file, {});
@@ -323,7 +366,7 @@ class AssetLister extends FormApplication<FormApplicationOptions, AppData, {}> {
     private async onReIndex() {
         log("Re-Index!!!");
         appData.clearCache();
-        await this.data.reindexModules(false, info => log(new Date(), info));
+        await this.data.reindexModules(false, new ProgressViewer());
         log("Start rendering after indexing", new Date());
         await this._render();
         log("Finished rendering after indexing", new Date());
@@ -421,6 +464,58 @@ class AssetLister extends FormApplication<FormApplicationOptions, AppData, {}> {
                 }
             }
         })];
+    }
+}
+
+class ProgressViewer {
+    private dialog: Dialog;
+    private disableNotifications: boolean = true;
+    constructor() {
+        if(this.disableNotifications) {
+            ui.notifications.close();
+        }
+        this.dialog = new Dialog({
+            title: "Progress",
+            buttons: {},
+            content: '<progress max="100" value="0">?%</progress><textarea class="messages"></textarea><textarea class="debug"></textarea>',
+            default: "Close",
+            close: () => {
+                if(this.disableNotifications) {
+                    ui.notifications = new Notifications();
+                    ui.notifications.render(true);
+                }
+            }
+        },
+        {
+            classes: [MODULE_NAME, "progress-viewer"],
+            resizable: true,
+        });
+        this.dialog.render(true);
+    }
+
+    update(finished: number, total: number, message: string | null, debugInfo: unknown) {
+        const win = this.dialog.element[0];
+        if(win != null) {
+            const progress = win.querySelector<HTMLProgressElement>("progress");
+            if(progress != null) {
+                progress.value = finished;
+                progress.max = total;
+
+                const messages = win.querySelector<HTMLProgressElement>("textarea.messages")!;
+                messages.innerHTML += "\n" + message;
+                messages.scrollTop = messages.scrollHeight; // scroll to bottom
+
+                const debug = win.querySelector<HTMLProgressElement>("textarea.debug")!;
+                debug.innerHTML = JSON.stringify(debugInfo);
+                log("update ProgressViewer", debugInfo);
+            }
+            else {
+                log("Could not get <progress> of ProgressViewer", this.dialog); 
+            }
+        }
+        else {
+            log("Could not get window of ProgressViewer", this.dialog); 
+        }
     }
 }
 
@@ -680,6 +775,7 @@ async function packsFromModule(module: Game.ModuleData<ModuleData>) {
 
 type IndexUpdateInfo = {
     message: string | null,
+    finished: boolean,
     existing: {
         modules: {
             found: number,
