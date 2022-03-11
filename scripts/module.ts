@@ -21,74 +21,107 @@ interface Asset {
     thumb: string | null | undefined,
 }
 
-interface AppData {
-    assetCollection: {
-        [moduleName: string]: {
-            title: string,
-            onePack: boolean,
-            packs: {
-                [packName: string]: {
-                    title: string,
-                    path: string,
-                    assets: Asset[],
-                }
-            }
-        }
+interface PackInCache {
+    title: string,
+    path: string,
+    assets: Asset[],
+}
+
+interface ModuleInCache {
+    title: string,
+    onePack: boolean,
+    packs: {
+        [packName: string]: PackInCache | undefined
     }
 }
 
-class AppDataClass implements AppData {
+interface AppData {
+    assetCollection: {
+        [moduleName: string]: ModuleInCache | undefined
+    }
+}
+
+class AppDataClass {
     assetCollection: AppData["assetCollection"] = {};
 
     constructor(private configManager: ConfigManager) { }
+
+    getModule(moduleName: string) {
+        return this.assetCollection[moduleName];
+    }
+
+    getOrCreateModule(moduleName: string, or: ModuleInCache) {
+        let module = this.getModule(moduleName);
+        if(module === undefined) {
+            module = or;
+            this.assetCollection[moduleName] = module;
+        }
+        return module;
+    }
+
+    getPack(moduleName: string, packName: string) {
+        return this.getModule(moduleName)?.packs[packName];
+    }
+
+    getOrCreatePack(moduleName: string, packName: string, orModule: ModuleInCache, orPack: PackInCache) {
+        const module = this.getOrCreateModule(moduleName, orModule);
+        let pack = module.packs[packName];
+        if(pack === undefined) {
+            pack = orPack;
+            module.packs[packName] = pack;
+        }
+        return pack;
+    }
+
+    getAsset(moduleName: string, packName: string, assetIndex: number) {
+        const pack = this.getPack(moduleName, packName);
+        return pack?.assets[assetIndex];
+    }
+
+    addAsset(moduleName: string, packName: string, asset: Asset, orModule: ModuleInCache, orPack: PackInCache) {
+        const pack = this.getOrCreatePack(moduleName, packName, orModule, orPack);
+        pack.assets.push(asset);
+        this.updateOnePack(moduleName);
+    }
+
+    private updateOnePack(moduleName: string) {
+        let onePack: boolean | null = null;
+        const module = this.getModule(moduleName)
+        if(module !== undefined) {
+            onePack = Object.keys(module.packs).length == 1;
+        }
+        return onePack;
+    }
 
     loadCache() {
         return fetch(`${MODULE_NAME}/cache.json`).then(s => s.json() as Promise<typeof this.assetCollection>).then(ac => { this.assetCollection = ac; }).catch();
     }
 
-    addScene(moduleId: string, moduleTitle: string, packName: string, packTitle: string, packPath: string, asset: SceneDataConstructorData) {
-        let module = this.assetCollection[moduleId];
-        if(module === undefined) {
-            module = { title: moduleTitle, onePack: false, packs: {} };
-            this.assetCollection[moduleId] = module;
-        }
-        let packInModule = module.packs[packName];
-        if(packInModule === undefined) {
-            packInModule = { title: packTitle, path: packPath, assets: [] };
-            module.packs[packName] = packInModule;
-        }
-        packInModule.assets.push({
-            name: asset.name,
-            img: asset.img,
-            thumb: asset.thumb,
-        });
-        module.onePack = Object.keys(module.packs).length == 1;
+    addScene(moduleName: string, moduleTitle: string, packName: string, packTitle: string, packPath: string, asset: SceneDataConstructorData) {
+        this.addAsset(moduleName, packName, { name: asset.name, img: asset.img, thumb: asset.thumb }, { title: moduleTitle, onePack: false, packs: {} }, { title: packTitle, path: packPath, assets: [] });
     }
 
-    addShalowModule(moduleId: string) {
-        let module = this.assetCollection[moduleId];
-        if(module === undefined) {
-            module = { title: game.modules.get(moduleId)!.data.name, onePack: false, packs: {} };
-            this.assetCollection[moduleId] = module;
-        }
+    addShalowModule(moduleName: string) {
+        this.getOrCreateModule(moduleName, this.getShalowModuleStruct(moduleName));
+    }
+
+    getShalowModuleStruct(moduleName: string) {
+        const gameModule = game.modules.get(moduleName);
+        assert(gameModule != undefined);
+        return { title: gameModule.data.name, onePack: false, packs: {} };
     }
 
     async reindexModule(moduleId: string, updater: ProgressViewer | null) {
-        const module = game.modules.get(moduleId);
-        if(module === undefined) {
-            throw new Error("Module not found: " + moduleId);
-        }
-        const module2 = this.assetCollection[moduleId];
-        if(module2 === undefined) {
-            this.addShalowModule(moduleId);
-        }
-        for(const pack of await packsFromModule(module)) {
+        const gameModule = game.modules.get(moduleId);
+        assert(gameModule != undefined, "Module not found: " + moduleId);
+        const module = this.getOrCreateModule(moduleId, this.getShalowModuleStruct(moduleId));
+        for(const pack of await packsFromModule(gameModule)) {
             for(const scene of scenesFromPackContent(pack.content)) {
-                this.addScene(module.id, module.data.title, pack.name, pack.title, pack.path, scene);
+                this.addScene(gameModule.id, gameModule.data.title, pack.name, pack.title, pack.path, scene);
             }
         }
         this.saveCache(updater);
-        return this.assetCollection[moduleId];
+        return module; // TODO was this.assetCollection[moduleId], check that using module works
     }
 
     // TODO see usage of this function, we probably need to put it somewhere where it makes more sense
@@ -170,6 +203,18 @@ class AppDataClass implements AppData {
         this.assetCollection = {};
     }
 
+    moduleCount() {
+        return Object.keys(this.assetCollection).length;
+    }
+
+    packCount() {
+        return Object.values(this.assetCollection).reduce((prev, cur) => prev + Object.keys(cur!.packs).length, 0);
+    }
+    
+    assetCount() {
+        return Object.values(this.assetCollection).reduce((prev, cur) => prev + Object.values(cur!.packs).reduce((p, c) => p + c!.assets.length, 0), 0);
+    }
+
     private async convertThumbs(progressViewer: ProgressViewer | null) {
         try {
             await FilePicker.createDirectory("data", `${MODULE_NAME}/thumbs`);
@@ -183,23 +228,23 @@ class AppDataClass implements AppData {
             finished: false,
             existing: {
                 modules: {
-                    found: Object.keys(this.assetCollection).length,
+                    found: this.moduleCount(),
                     finished: 0,
                 },
                 packs: {
-                    found: Object.values(this.assetCollection).reduce((prev, cur) => prev + Object.keys(cur.packs).length, 0),
+                    found: this.packCount(),
                     finished: 0,
                 },
                 assets: {
-                    found: Object.values(this.assetCollection).reduce((prev, cur) => prev + Object.values(cur.packs).reduce((p, c) => p + c.assets.length, 0), 0),
+                    found: this.assetCount(),
                     finished: 0,
                 },
             },
         };
 
         for(const [moduleId, module] of Object.entries(this.assetCollection)) {
-            for(const [packId, pack] of Object.entries(module.packs)) {
-                for(const [assetIndex, asset] of pack.assets.entries()) {
+            for(const [packId, pack] of Object.entries(module!.packs)) {
+                for(const [assetIndex, asset] of pack!.assets.entries()) {
                     if(asset.thumb && asset.thumb.startsWith("data:")) {
                         const dataUrl = asset.thumb;
                         let ext: string | null = null;
@@ -260,9 +305,9 @@ export async function dataUrlToFile(dataUrl: string): Promise<Blob> {
     return blob;
 }
 
-function assert(cond: boolean): asserts cond {
+function assert(cond: boolean, msg?: string): asserts cond {
     if(cond === false) {
-        throw new Error("Value is null or undefined");
+        throw new Error("Value is null or undefined: " + (msg ?? "no message"));
     }
 }
 
@@ -337,7 +382,7 @@ Hooks.once('init', async function() {
 });
 
 class AssetLister extends FormApplication<FormApplicationOptions, AppData, {}> {
-    private currentAsset: null | { moduleName: string, packName: string, assetNumber: number } = null;
+    private currentAsset: null | { moduleName: string, packName: string, assetIndex: number } = null;
 
     constructor(private data: AppDataClass) {
         super({}, {
@@ -375,15 +420,19 @@ class AssetLister extends FormApplication<FormApplicationOptions, AppData, {}> {
 
     private async onAddScene() {
         log("adding", this.currentAsset);
+
         assert(this.currentAsset != null);
-        const pack = this.data.assetCollection[this.currentAsset.moduleName].packs[this.currentAsset.packName];
-        const asset = pack.assets[this.currentAsset.assetNumber];
-        log(asset);
+        const pack = this.data.getPack(this.currentAsset.moduleName, this.currentAsset.packName);
+
+        assert(pack != undefined);
         const rawPack = await getPackContent(this.currentAsset.moduleName, pack.path);
-        const fullAsset = sceneFromPackContent(rawPack, this.currentAsset.assetNumber);
+        
+        const fullAsset = sceneFromPackContent(rawPack, this.currentAsset.assetIndex);
         assert(fullAsset != undefined);
+
         let newScene = await Scene.create(fullAsset);
         assert(newScene != undefined);
+
         let tData = await newScene.createThumbnail();
         await newScene.update({ thumb: tData.thumb }); // force generating the thumbnail
     }
@@ -393,13 +442,18 @@ class AssetLister extends FormApplication<FormApplicationOptions, AppData, {}> {
         assert(assetElement.dataset.moduleName != undefined);
         assert(assetElement.dataset.packName != undefined);
         assert(assetElement.dataset.assetName != undefined);
-        assert(assetElement.dataset.assetNumber != undefined);
-        const asset = this.data.assetCollection[assetElement.dataset.moduleName].packs[assetElement.dataset.packName].assets[parseInt(assetElement.dataset.assetNumber, 10)];
+        assert(assetElement.dataset.assetIndex != undefined);
+        const assetIndex = parseInt(assetElement.dataset.assetIndex, 10);
+        const asset = this.data.getAsset(assetElement.dataset.moduleName, assetElement.dataset.packName, assetIndex);
         const container = document.createElement("div");
-        container.innerHTML = `<div>${assetElement.dataset.moduleName}.${assetElement.dataset.packName}/${assetElement.dataset.assetName}</div>
-        <div><img src="${asset.img}" /></div>`
+        if(asset != undefined) {
+            container.innerHTML = `<div>${assetElement.dataset.moduleName}.${assetElement.dataset.packName}/${assetElement.dataset.assetName}</div><div><img src="${asset.img}" /></div>`;
+        }
+        else {
+            container.innerHTML = `<div>${assetElement.dataset.moduleName}.${assetElement.dataset.packName}/${assetElement.dataset.assetName}</div><div>Could not find image.</div>`;
+        }
         win.querySelector(".panel .asset-view")!.replaceChildren(container);
-        this.currentAsset = { moduleName: assetElement.dataset.moduleName, packName: assetElement.dataset.packName, assetNumber: parseInt(assetElement.dataset.assetNumber, 10) };
+        this.currentAsset = { moduleName: assetElement.dataset.moduleName, packName: assetElement.dataset.packName, assetIndex: assetIndex };
     }
 
     private async onRefreshModule(btn: HTMLElement) {
@@ -612,8 +666,8 @@ class ModuleSelector extends FormApplication<FormApplicationOptions, { existingM
         const pv = null;
         base.closest("form")!.querySelectorAll<HTMLInputElement>('.module-list ul li').forEach(async li => {
             const moduleName = li.dataset.moduleName!;
-            let module: typeof this.appData.assetCollection["modName"] | undefined = this.appData.assetCollection[moduleName];
-            let packs: [packName: string, pack: typeof this.appData.assetCollection["modName"]["packs"]["packName"]][];
+            let module = this.appData.getModule(moduleName);
+            let packs: [packName: string, pack: PackInCache | undefined][]; // TODO we should be able to remove undefined here
             if(module === undefined) {
                 module = await this.appData.reindexModule(moduleName, pv);
                 packs = Object.entries(module.packs);
@@ -626,7 +680,7 @@ class ModuleSelector extends FormApplication<FormApplicationOptions, { existingM
                 }
             }
 
-            let hasScene: boolean = packs.some(([k, v]) => v.assets.length !== 0);
+            let hasScene: boolean = packs.some(([k, v]) => v!.assets.length !== 0);
             li.classList.remove("unkown-scene-status");
             li.classList.toggle("has-scene", hasScene);
             li.classList.toggle("no-scene", !hasScene);

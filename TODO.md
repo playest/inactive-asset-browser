@@ -12,3 +12,5 @@
 - do not identify asset only by their index, maybe by their title and/or their image
 - import scenes in a directory
 - preview for mp4 files in the right panel
+- update thumbnail when possible
+- setup eslint, for example I want to be able to remove all the unecessary ! assertions
