@@ -91,6 +91,7 @@ class AppDataClass implements AppData {
         return this.assetCollection[moduleId];
     }
 
+    // TODO see usage of this function, we probably need to put it somewhere where it makes more sense
     private static formatForProgressViewer(info: IndexUpdateInfo) {
         const finished = info.existing.modules.finished + info.existing.packs.finished + info.existing.assets.finished;
         const found = info.existing.modules.found + info.existing.packs.found + info.existing.assets.found;
@@ -486,10 +487,10 @@ class ProgressViewer {
                 }
             }
         },
-        {
-            classes: [MODULE_NAME, "progress-viewer"],
-            resizable: true,
-        });
+            {
+                classes: [MODULE_NAME, "progress-viewer"],
+                resizable: true,
+            });
         this.dialog.render(true);
     }
 
@@ -510,11 +511,11 @@ class ProgressViewer {
                 log("update ProgressViewer", debugInfo);
             }
             else {
-                log("Could not get <progress> of ProgressViewer", this.dialog); 
+                log("Could not get <progress> of ProgressViewer", this.dialog);
             }
         }
         else {
-            log("Could not get window of ProgressViewer", this.dialog); 
+            log("Could not get window of ProgressViewer", this.dialog);
         }
     }
 }
