@@ -42,9 +42,14 @@ interface AppData {
 }
 
 class AppDataClass {
-    assetCollection: AppData["assetCollection"] = {};
+    private assetCollection: AppData["assetCollection"] = {};
 
     constructor(private configManager: ConfigManager) { }
+
+    /** Do not modify the returned value */
+    getAssetCollection() {
+        return this.assetCollection;
+    }
 
     getModule(moduleName: string) {
         return this.assetCollection[moduleName];
@@ -210,9 +215,24 @@ class AppDataClass {
     packCount() {
         return Object.values(this.assetCollection).reduce((prev, cur) => prev + Object.keys(cur!.packs).length, 0);
     }
-    
+
     assetCount() {
         return Object.values(this.assetCollection).reduce((prev, cur) => prev + Object.values(cur!.packs).reduce((p, c) => p + c!.assets.length, 0), 0);
+    }
+
+    * assetGenerator() {
+        const moduleEntries = Object.entries(this.assetCollection);
+        for(const [moduleId, module] of moduleEntries) {
+            const packEntries = Object.entries(module!.packs);
+            let packIndex: number = 0;
+            for(const [packId, pack] of packEntries) {
+                for(const [assetIndex, asset] of pack!.assets.entries()) {
+                    log("lastPack gen", "len", packEntries.length, "index", packIndex);
+                    yield { moduleId, module, packId, pack, assetIndex, asset, lastPack: (packEntries.length - 1) == packIndex, lastAsset: (pack!.assets.length - 1) == assetIndex };
+                }
+                packIndex++;
+            }
+        }
     }
 
     private async convertThumbs(progressViewer: ProgressViewer | null) {
@@ -242,46 +262,51 @@ class AppDataClass {
             },
         };
 
-        for(const [moduleId, module] of Object.entries(this.assetCollection)) {
-            for(const [packId, pack] of Object.entries(module!.packs)) {
-                for(const [assetIndex, asset] of pack!.assets.entries()) {
-                    if(asset.thumb && asset.thumb.startsWith("data:")) {
-                        const dataUrl = asset.thumb;
-                        let ext: string | null = null;
-                        const fileNameWithoutExt = `${moduleId}.${packId}.${assetIndex}`;
-                        if(asset.thumb.startsWith("data:image/png")) {
-                            ext = "png";
-                        }
-                        else if(asset.thumb.startsWith("data:image/jpg")) {
-                            ext = "jpg";
-                        }
-                        else {
-                            log("Could not deduce ext for", fileNameWithoutExt, asset.thumb.substring(0, 20));
-                        }
-
-                        if(ext) {
-                            const dirPath = `${MODULE_NAME}/thumbs`;
-                            const fileName = `${fileNameWithoutExt}.${ext}`;
-                            info.message = `Saved thumb ${fileName}`;
-                            asset.thumb = `${dirPath}/${fileName}`;
-                            const blob = await dataUrlToFile(dataUrl);
-                            const file = new File([blob], fileName, { type: 'application/json' });
-                            await FilePicker.upload("data", dirPath, file, {});
-                        }
-                        else {
-                            info.message = null;
-                        }
-                    }
-                    info.existing.assets.finished++;
-                    progressViewer?.update(...AppDataClass.formatForProgressViewer(info));
+        for(const { moduleId, module, packId, pack, assetIndex, asset, lastPack, lastAsset } of this.assetGenerator()) {
+            info.message = null;
+            if(asset.thumb && asset.thumb.startsWith("data:")) {
+                const dataUrl = asset.thumb;
+                let ext: string | null = null;
+                const fileNameWithoutExt = `${moduleId}.${packId}.${assetIndex}`;
+                if(asset.thumb.startsWith("data:image/png")) {
+                    ext = "png";
                 }
+                else if(asset.thumb.startsWith("data:image/jpg")) {
+                    ext = "jpg";
+                }
+                else {
+                    log("Could not deduce ext for", fileNameWithoutExt, asset.thumb.substring(0, 20));
+                }
+
+                if(ext) {
+                    const dirPath = `${MODULE_NAME}/thumbs`;
+                    const fileName = `${fileNameWithoutExt}.${ext}`;
+                    info.message = `Saved thumb ${fileName}`;
+                    asset.thumb = `${dirPath}/${fileName}`;
+                    const blob = await dataUrlToFile(dataUrl);
+                    const file = new File([blob], fileName, { type: 'application/json' });
+                    await FilePicker.upload("data", dirPath, file, {});
+                }
+                else {
+                    info.message = null;
+                }
+            }
+            else {
+                info.message = null;
+            }
+            info.existing.assets.finished++;
+            progressViewer?.update(...AppDataClass.formatForProgressViewer(info));
+            log("lastPack", lastPack);
+            if(lastAsset) {
                 info.existing.packs.finished++;
-                info.message = `Finished thumbs for ${packId}`;
+                info.message = `Finished thumbs for pack ${packId}`;
                 progressViewer?.update(...AppDataClass.formatForProgressViewer(info));
             }
-            info.existing.modules.finished++;
-            info.message = `Finished thumbs for ${moduleId}`;
-            progressViewer?.update(...AppDataClass.formatForProgressViewer(info));
+            if(lastPack && lastAsset) {
+                info.existing.modules.finished++;
+                info.message = `Finished thumbs for module ${moduleId}`;
+                progressViewer?.update(...AppDataClass.formatForProgressViewer(info));
+            }
         }
     }
 
@@ -405,8 +430,8 @@ class AssetLister extends FormApplication<FormApplicationOptions, AppData, {}> {
         });
     }
 
-    getData() {
-        return this.data;
+    getData(): AppData {
+        return { assetCollection: this.data.getAssetCollection() };
     }
 
     private async onReIndex() {
@@ -426,7 +451,7 @@ class AssetLister extends FormApplication<FormApplicationOptions, AppData, {}> {
 
         assert(pack != undefined);
         const rawPack = await getPackContent(this.currentAsset.moduleName, pack.path);
-        
+
         const fullAsset = sceneFromPackContent(rawPack, this.currentAsset.assetIndex);
         assert(fullAsset != undefined);
 
@@ -556,9 +581,11 @@ class ProgressViewer {
                 progress.value = finished;
                 progress.max = total;
 
-                const messages = win.querySelector<HTMLProgressElement>("textarea.messages")!;
-                messages.innerHTML += "\n" + message;
-                messages.scrollTop = messages.scrollHeight; // scroll to bottom
+                if(message != null) {
+                    const messages = win.querySelector<HTMLProgressElement>("textarea.messages")!;
+                    messages.innerHTML += "\n" + message;
+                    messages.scrollTop = messages.scrollHeight; // scroll to bottom
+                }
 
                 const debug = win.querySelector<HTMLProgressElement>("textarea.debug")!;
                 debug.innerHTML = JSON.stringify(debugInfo);
