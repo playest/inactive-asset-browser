@@ -31,13 +31,13 @@ interface ModuleInCache {
     title: string,
     onePack: boolean,
     packs: {
-        [packName: string]: PackInCache | undefined
+        [packName: string]: PackInCache
     }
 }
 
 interface AppData {
     assetCollection: {
-        [moduleName: string]: ModuleInCache | undefined
+        [moduleName: string]: ModuleInCache
     }
 }
 
@@ -491,6 +491,7 @@ class AssetLister extends FormApplication<FormApplicationOptions, AppData, {}> {
     activateListeners(html: JQuery<HTMLElement>) {
         super.activateListeners(html);
         const win = html[0];
+        assert(win != undefined);
         win.querySelector(".re-index")!.addEventListener("click", () => this.onReIndex());
 
         win.querySelector(".select-modules")!.addEventListener("click", () => showModuleSelectorWindow());
@@ -717,6 +718,7 @@ class ModuleSelector extends FormApplication<FormApplicationOptions, { existingM
     activateListeners(html: JQuery<HTMLElement>) {
         super.activateListeners(html);
         const win = html[0];
+        assert(win != undefined);
         const self = this;
         win.querySelector<HTMLElement>(".sort-selected")!.addEventListener("click", function() {
             self.sortModulesByChecked(this);
@@ -893,6 +895,8 @@ function addControls(html: HTMLElement) {
 
 Hooks.on<Hooks.RenderApplication<SceneControls>>('renderSceneControls', (sceneControls, html, data) => {
     if(game.user?.isGM ?? false) {
-        addControls(html[0]);
+        const win = html[0];
+        assert(win != undefined);
+        addControls(win);
     }
 });
