@@ -84,11 +84,11 @@ class ModulePack<Content> {
 }
 
 class CachedModule<Content> {
-    private packs: { [packName: string]: CachedPack<Content> } = {};
+    public packs: { [packName: string]: CachedPack<Content> } = {};
 
     constructor(
         public readonly title: string,
-        private onePack: boolean,
+        public onePack: boolean,
     ) {
 
     }
@@ -131,7 +131,7 @@ class CachedModule<Content> {
 }
 
 class CachedPack<Content> {
-    private assets: { [assetName: string]: Content } = {};
+    public assets: { [assetName: string]: Content } = {};
 
     constructor(readonly title: string, readonly path: string) {
 
@@ -178,27 +178,14 @@ class CachedPack<Content> {
 }
 
 class AppDataClass {
-    private assetCollection = new ModulePack<Asset>();
+    public assetCollection = new ModulePack<Asset>();
 
     constructor(private configManager: ConfigManager) { }
 
     /** Do not modify the returned value */
     getAssetCollection(): AppData {
         // TODO we could just return this if some fields were public
-        const ret: AppData = { assetCollection: {} };
-        for(const m of this.assetCollection.moduleGenerator()) {
-            const plainModule: ModuleInCache = { title: m.module.title, onePack: m.module.getOnePack(), packs: {} };
-            ret.assetCollection[m.moduleName] = plainModule;
-            for(const p of m.module.packGenerator()) {
-                const plainPack: PackInCache = {title: p.pack.title, path: p.pack.path, assets: {}};
-                plainModule.packs[p.packName] = plainPack;
-                for(const a of p.pack.assetGenerator()) {
-                    const plainAsset: Asset = {name: a.asset.name, img: a.asset.img, thumb: a.asset.thumb};
-                    plainPack.assets[a.assetName] = plainAsset;
-                }
-            }
-        }
-        return ret;
+        return { assetCollection: this.assetCollection["modules"] };
     }
 
     getModule(moduleName: string) {
