@@ -50,10 +50,10 @@ class ModulePack<Content> {
         return this.modules[moduleName];
     }
 
-    getOr(moduleName: string, or: CachedModule<Content>) {
+    getOr(moduleName: string, or: () => CachedModule<Content>) {
         let module = this.get(moduleName);
         if(module === undefined) {
-            module = or;
+            module = or();
             this.modules[moduleName] = module;
         }
         return module;
@@ -113,10 +113,10 @@ class CachedModule<Content> {
         return this.packs[packName];
     }
 
-    getOr(packName: string, or: CachedPack<Content>) {
+    getOr(packName: string, or: () => CachedPack<Content>) {
         let pack = this.get(packName);
         if(pack === undefined) {
-            pack = or;
+            pack = or();
             this.packs[packName] = pack;
             this.updateOnePack();
         }
@@ -145,10 +145,10 @@ class CachedPack<Content> {
         return this.assets[assetName];
     }
 
-    getOr(assetName: string, or: Content) {
+    getOr(assetName: string, or: () => Content) {
         let content = this.get(assetName);
         if(content === undefined) {
-            content = or;
+            content = or();
             this.assets[assetName] = content;
         }
         return content;
@@ -205,7 +205,7 @@ class AppDataClass {
     }
 
     private getOrCreateModule(moduleName: string, or: ModuleInCache) {
-        return this.assetCollection.getOr(moduleName, new CachedModule(or.title, or.onePack));
+        return this.assetCollection.getOr(moduleName, () => new CachedModule(or.title, or.onePack));
     }
 
     getPack(moduleName: string, packName: string) {
@@ -216,7 +216,7 @@ class AppDataClass {
         return this.assetCollection.get(moduleName)?.get(packName)?.get(assetName);
     }
 
-    private addAsset(moduleName: string, packName: string, assetName: string, asset: Asset, orModule: CachedModule<Asset>, orPack: CachedPack<Asset>) {
+    private addAsset(moduleName: string, packName: string, assetName: string, asset: Asset, orModule: () => CachedModule<Asset>, orPack: () => CachedPack<Asset>) {
         this.assetCollection.getOr(moduleName, orModule).getOr(packName, orPack).put(assetName, asset);
     }
 
@@ -225,7 +225,7 @@ class AppDataClass {
     }
 
     addScene(moduleName: string, moduleTitle: string, packName: string, packTitle: string, packPath: string, assetIndex: number, asset: SceneDataConstructorData) {
-        this.addAsset(moduleName, packName, CachedPack.assetToAssetName(assetIndex, asset), { name: asset.name, img: asset.img, thumb: asset.thumb }, new CachedModule(moduleTitle, false), new CachedPack(packTitle, packPath));
+        this.addAsset(moduleName, packName, CachedPack.assetToAssetName(assetIndex, asset), { name: asset.name, img: asset.img, thumb: asset.thumb }, () => new CachedModule(moduleTitle, false), () => new CachedPack(packTitle, packPath));
     }
 
     addShalowModule(moduleName: string) {
