@@ -205,15 +205,11 @@ class AppDataClass {
     }
     
     getPack(moduleName: string, packName: string) {
-        return this.getModule(moduleName)?.get(packName);
+        return this.assetCollection.get(moduleName)?.get(packName);
     }
 
     getAsset(moduleName: string, packName: string, assetName: string) {
         return this.assetCollection.get(moduleName)?.get(packName)?.get(assetName);
-    }
-
-    loadCache() {
-        return fetch(`${MODULE_NAME}/cache.json`).then(s => s.json() as Promise<typeof this.assetCollection>).then(ac => { this.assetCollection = ac; }).catch();
     }
 
     addScene(moduleName: string, moduleTitle: string, packName: string, packTitle: string, packPath: string, assetIndex: number, asset: SceneDataConstructorData) {
@@ -226,6 +222,10 @@ class AppDataClass {
 
     addShalowModule(moduleName: string) {
         this.assetCollection.getOr(moduleName, () => this.getShalowModuleStruct(moduleName));
+    }
+
+    loadCache() {
+        return fetch(`${MODULE_NAME}/cache.json`).then(s => s.json() as Promise<typeof this.assetCollection>).then(ac => { this.assetCollection = ac; }).catch();
     }
 
     private getShalowModuleStruct(moduleName: string) {
@@ -808,7 +808,6 @@ class ModuleSelector extends FormApplication<FormApplicationOptions, { existingM
         base.closest("form")!.querySelectorAll<HTMLInputElement>('.module-list ul li').forEach(async li => {
             const moduleName = li.dataset.moduleName!;
             let module = this.appData.getModule(moduleName);
-            let packs: [packName: string, pack: PackInCache | undefined][]; // TODO we should be able to remove undefined here
             if(module === undefined) {
                 module = await this.appData.reindexModule(moduleName, pv);
             }
