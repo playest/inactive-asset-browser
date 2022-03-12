@@ -85,10 +85,10 @@ class ModulePack<Content> {
 
 class CachedModule<Content> {
     private packs: { [packName: string]: CachedPack<Content> } = {};
+    private onePack: boolean = false;
 
     constructor(
         public readonly title: string,
-        private onePack: boolean,
     ) {
 
     }
@@ -221,7 +221,7 @@ class AppDataClass {
     }
 
     addScene(moduleName: string, moduleTitle: string, packName: string, packTitle: string, packPath: string, assetIndex: number, asset: SceneDataConstructorData) {
-        this.addAsset(moduleName, packName, CachedPack.assetToAssetName(assetIndex, asset), { name: asset.name, img: asset.img, thumb: asset.thumb }, () => new CachedModule(moduleTitle, false), () => new CachedPack(packTitle, packPath));
+        this.addAsset(moduleName, packName, CachedPack.assetToAssetName(assetIndex, asset), { name: asset.name, img: asset.img, thumb: asset.thumb }, () => new CachedModule(moduleTitle), () => new CachedPack(packTitle, packPath));
     }
 
     addShalowModule(moduleName: string) {
@@ -231,7 +231,7 @@ class AppDataClass {
     private getShalowModuleStruct(moduleName: string) {
         const gameModule = game.modules.get(moduleName);
         assert(gameModule != undefined);
-        return new CachedModule<Asset>(gameModule.data.name, false);
+        return new CachedModule<Asset>(gameModule.data.name);
     }
 
     async reindexModule(moduleName: string, updater: ProgressViewer | null) {
