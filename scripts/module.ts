@@ -203,11 +203,7 @@ class AppDataClass {
     getModule(moduleName: string) {
         return this.assetCollection.get(moduleName);
     }
-
-    private getOrCreateModule(moduleName: string, or: ModuleInCache) {
-        return this.assetCollection.getOr(moduleName, () => new CachedModule(or.title, or.onePack));
-    }
-
+    
     getPack(moduleName: string, packName: string) {
         return this.getModule(moduleName)?.get(packName);
     }
@@ -229,19 +225,19 @@ class AppDataClass {
     }
 
     addShalowModule(moduleName: string) {
-        this.getOrCreateModule(moduleName, this.getShalowModuleStruct(moduleName));
+        this.assetCollection.getOr(moduleName, () => this.getShalowModuleStruct(moduleName));
     }
 
     private getShalowModuleStruct(moduleName: string) {
         const gameModule = game.modules.get(moduleName);
         assert(gameModule != undefined);
-        return { title: gameModule.data.name, onePack: false, packs: {} };
+        return new CachedModule<Asset>(gameModule.data.name, false);
     }
 
-    async reindexModule(moduleId: string, updater: ProgressViewer | null) {
-        const gameModule = game.modules.get(moduleId);
-        assert(gameModule != undefined, "Module not found: " + moduleId);
-        const module = this.getOrCreateModule(moduleId, this.getShalowModuleStruct(moduleId));
+    async reindexModule(moduleName: string, updater: ProgressViewer | null) {
+        const gameModule = game.modules.get(moduleName);
+        assert(gameModule != undefined, "Module not found: " + moduleName);
+        const module = this.assetCollection.getOr(moduleName, () => this.getShalowModuleStruct(moduleName));
         for(const pack of await packsFromModule(gameModule)) {
             for(const [sceneIndex, scene] of scenesFromPackContent(pack.content).entries()) {
                 this.addScene(gameModule.id, gameModule.data.title, pack.name, pack.title, pack.path, sceneIndex, scene);
