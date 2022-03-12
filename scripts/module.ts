@@ -212,16 +212,16 @@ class AppDataClass {
         return this.assetCollection.get(moduleName)?.get(packName)?.get(assetName);
     }
 
-    private addAsset(moduleName: string, packName: string, assetName: string, asset: Asset, orModule: () => CachedModule<Asset>, orPack: () => CachedPack<Asset>) {
-        this.assetCollection.getOr(moduleName, orModule).getOr(packName, orPack).put(assetName, asset);
-    }
-
     loadCache() {
         return fetch(`${MODULE_NAME}/cache.json`).then(s => s.json() as Promise<typeof this.assetCollection>).then(ac => { this.assetCollection = ac; }).catch();
     }
 
     addScene(moduleName: string, moduleTitle: string, packName: string, packTitle: string, packPath: string, assetIndex: number, asset: SceneDataConstructorData) {
-        this.addAsset(moduleName, packName, CachedPack.assetToAssetName(assetIndex, asset), { name: asset.name, img: asset.img, thumb: asset.thumb }, () => new CachedModule(moduleTitle), () => new CachedPack(packTitle, packPath));
+        const asset2 = { name: asset.name, img: asset.img, thumb: asset.thumb };
+        this.assetCollection
+            .getOr(moduleName, () => new CachedModule(moduleTitle))
+            .getOr(packName, () => new CachedPack(packTitle, packPath))
+            .put(CachedPack.assetToAssetName(assetIndex, asset), asset2);
     }
 
     addShalowModule(moduleName: string) {
