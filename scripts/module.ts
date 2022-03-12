@@ -204,7 +204,7 @@ class AppDataClass {
         return this.assetCollection.get(moduleName);
     }
 
-    getOrCreateModule(moduleName: string, or: ModuleInCache) {
+    private getOrCreateModule(moduleName: string, or: ModuleInCache) {
         return this.assetCollection.getOr(moduleName, new CachedModule(or.title, or.onePack));
     }
 
@@ -212,17 +212,11 @@ class AppDataClass {
         return this.getModule(moduleName)?.get(packName);
     }
 
-    getOrCreatePack(moduleName: string, packName: string, orModule: ModuleInCache, orPack: PackInCache) {
-        const module = this.getOrCreateModule(moduleName, orModule);
-        let pack = module.getOr(packName, new CachedPack(orPack.title, orPack.path));
-        return pack;
-    }
-
     getAsset(moduleName: string, packName: string, assetName: string) {
         return this.assetCollection.get(moduleName)?.get(packName)?.get(assetName);
     }
 
-    addAsset(moduleName: string, packName: string, assetName: string, asset: Asset, orModule: CachedModule<Asset>, orPack: CachedPack<Asset>) {
+    private addAsset(moduleName: string, packName: string, assetName: string, asset: Asset, orModule: CachedModule<Asset>, orPack: CachedPack<Asset>) {
         this.assetCollection.getOr(moduleName, orModule).getOr(packName, orPack).put(assetName, asset);
     }
 
@@ -238,7 +232,7 @@ class AppDataClass {
         this.getOrCreateModule(moduleName, this.getShalowModuleStruct(moduleName));
     }
 
-    getShalowModuleStruct(moduleName: string) {
+    private getShalowModuleStruct(moduleName: string) {
         const gameModule = game.modules.get(moduleName);
         assert(gameModule != undefined);
         return { title: gameModule.data.name, onePack: false, packs: {} };
