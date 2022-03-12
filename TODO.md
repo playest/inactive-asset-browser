@@ -14,3 +14,4 @@
 - preview for mp4 files in the right panel
 - update thumbnail when possible
 - setup eslint, for example I want to be able to remove all the unecessary ! assertions
+- rewrite classes for cache layers with an underlying plain object for easy json save/load
