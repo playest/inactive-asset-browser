@@ -15,6 +15,8 @@ declare global {
     }
 }
 
+type PartialBy<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>
+
 interface Asset {
     name: string,
     img: string | null | undefined, // we should probably exclude those without image
@@ -24,7 +26,7 @@ interface Asset {
 interface PackInCache {
     title: string,
     path: string,
-    assets: Asset[],
+    assets: { [assetName: string]: Asset },
 }
 
 interface ModuleInCache {
@@ -41,69 +43,196 @@ interface AppData {
     }
 }
 
-class AppDataClass {
-    private assetCollection: AppData["assetCollection"] = {};
+class ModulePack<Content> {
+    private modules: { [moduleName: string]: CachedModule<Content> } = {};
 
-    constructor(private configManager: ConfigManager) { }
-
-    /** Do not modify the returned value */
-    getAssetCollection() {
-        return this.assetCollection;
+    get(moduleName: string) {
+        return this.modules[moduleName];
     }
 
-    getModule(moduleName: string) {
-        return this.assetCollection[moduleName];
-    }
-
-    getOrCreateModule(moduleName: string, or: ModuleInCache) {
-        let module = this.getModule(moduleName);
+    getOr(moduleName: string, or: CachedModule<Content>) {
+        let module = this.get(moduleName);
         if(module === undefined) {
             module = or;
-            this.assetCollection[moduleName] = module;
+            this.modules[moduleName] = module;
         }
         return module;
     }
 
-    getPack(moduleName: string, packName: string) {
-        return this.getModule(moduleName)?.packs[packName];
+    *moduleGenerator() {
+        for(const [moduleName, module] of Object.entries(this.modules)) {
+            yield { moduleName, module };
+        }
     }
 
-    getOrCreatePack(moduleName: string, packName: string, orModule: ModuleInCache, orPack: PackInCache) {
-        const module = this.getOrCreateModule(moduleName, orModule);
-        let pack = module.packs[packName];
+    clear() {
+        this.modules = {};
+    }
+
+    moduleCount() {
+        return Object.keys(this.modules).length;
+    }
+
+    packCount() {
+        return Object.values(this.modules).reduce((prev, cur) => prev + cur.packCount(), 0);
+    }
+
+    assetCount() {
+        return Object.values(this.modules).reduce((prev, cur) => prev + cur.assetCount(), 0);
+    }
+
+}
+
+class CachedModule<Content> {
+    private packs: { [packName: string]: CachedPack<Content> } = {};
+
+    constructor(
+        public readonly title: string,
+        private onePack: boolean,
+    ) {
+
+    }
+
+    private updateOnePack() {
+        this.onePack = Object.keys(this.packs).length == 1;
+    }
+
+    getOnePack() {
+        return this.onePack;
+    }
+
+    packCount() {
+        return Object.keys(this.packs).length;
+    }
+
+    assetCount() {
+        return Object.values(this.packs).reduce((prev, cur) => prev + cur.assetCount(), 0);
+    }
+
+    get(packName: string) {
+        return this.packs[packName];
+    }
+
+    getOr(packName: string, or: CachedPack<Content>) {
+        let pack = this.get(packName);
         if(pack === undefined) {
-            pack = orPack;
-            module.packs[packName] = pack;
+            pack = or;
+            this.packs[packName] = pack;
+            this.updateOnePack();
         }
         return pack;
     }
 
-    getAsset(moduleName: string, packName: string, assetIndex: number) {
-        const pack = this.getPack(moduleName, packName);
-        return pack?.assets[assetIndex];
-    }
-
-    addAsset(moduleName: string, packName: string, asset: Asset, orModule: ModuleInCache, orPack: PackInCache) {
-        const pack = this.getOrCreatePack(moduleName, packName, orModule, orPack);
-        pack.assets.push(asset);
-        this.updateOnePack(moduleName);
-    }
-
-    private updateOnePack(moduleName: string) {
-        let onePack: boolean | null = null;
-        const module = this.getModule(moduleName)
-        if(module !== undefined) {
-            onePack = Object.keys(module.packs).length == 1;
+    *packGenerator() {
+        for(const [packName, pack] of Object.entries(this.packs)) {
+            yield { packName, pack };
         }
-        return onePack;
+    }
+}
+
+class CachedPack<Content> {
+    private assets: { [assetName: string]: Content } = {};
+
+    constructor(readonly title: string, readonly path: string) {
+
+    }
+
+    assetCount() {
+        return Object.keys(this.assets).length;
+    }
+
+    get(assetName: string) {
+        return this.assets[assetName];
+    }
+
+    getOr(assetName: string, or: Content) {
+        let content = this.get(assetName);
+        if(content === undefined) {
+            content = or;
+            this.assets[assetName] = content;
+        }
+        return content;
+    }
+
+    put(assetName: string, content: Content) {
+        assert(this.get(assetName) == undefined, `assetName already in the map: ${assetName}`);
+        this.assets[assetName] = content;
+    }
+
+    *assetGenerator() {
+        for(const [assetName, asset] of Object.entries(this.assets)) {
+            yield { assetName, asset };
+        }
+    }
+
+    static assetToAssetName(assetIndex: number, asset: PartialBy<Asset, "img" | "thumb">) {
+        assert(asset.img != undefined, "need an img to compute the asset name");
+        return `${assetIndex}.${asset.name}.${asset.img}`
+    }
+
+    static assetNameToAssetIndex(assetName: string) {
+        const parts = assetName.split(".", 1);
+        assert(parts.length == 1);
+        return parseInt(parts[0]!, 10);
+    }
+}
+
+class AppDataClass {
+    private assetCollection = new ModulePack<Asset>();
+
+    constructor(private configManager: ConfigManager) { }
+
+    /** Do not modify the returned value */
+    getAssetCollection(): AppData {
+        // TODO we could just return this if some fields were public
+        const ret: AppData = { assetCollection: {} };
+        for(const m of this.assetCollection.moduleGenerator()) {
+            const plainModule: ModuleInCache = { title: m.module.title, onePack: m.module.getOnePack(), packs: {} };
+            ret.assetCollection[m.moduleName] = plainModule;
+            for(const p of m.module.packGenerator()) {
+                const plainPack: PackInCache = {title: p.pack.title, path: p.pack.path, assets: {}};
+                plainModule.packs[p.packName] = plainPack;
+                for(const a of p.pack.assetGenerator()) {
+                    const plainAsset: Asset = {name: a.asset.name, img: a.asset.img, thumb: a.asset.thumb};
+                    plainPack.assets[a.assetName] = plainAsset;
+                }
+            }
+        }
+        return ret;
+    }
+
+    getModule(moduleName: string) {
+        return this.assetCollection.get(moduleName);
+    }
+
+    getOrCreateModule(moduleName: string, or: ModuleInCache) {
+        return this.assetCollection.getOr(moduleName, new CachedModule(or.title, or.onePack));
+    }
+
+    getPack(moduleName: string, packName: string) {
+        return this.getModule(moduleName)?.get(packName);
+    }
+
+    getOrCreatePack(moduleName: string, packName: string, orModule: ModuleInCache, orPack: PackInCache) {
+        const module = this.getOrCreateModule(moduleName, orModule);
+        let pack = module.getOr(packName, new CachedPack(orPack.title, orPack.path));
+        return pack;
+    }
+
+    getAsset(moduleName: string, packName: string, assetName: string) {
+        return this.assetCollection.get(moduleName)?.get(packName)?.get(assetName);
+    }
+
+    addAsset(moduleName: string, packName: string, assetName: string, asset: Asset, orModule: CachedModule<Asset>, orPack: CachedPack<Asset>) {
+        this.assetCollection.getOr(moduleName, orModule).getOr(packName, orPack).put(assetName, asset);
     }
 
     loadCache() {
         return fetch(`${MODULE_NAME}/cache.json`).then(s => s.json() as Promise<typeof this.assetCollection>).then(ac => { this.assetCollection = ac; }).catch();
     }
 
-    addScene(moduleName: string, moduleTitle: string, packName: string, packTitle: string, packPath: string, asset: SceneDataConstructorData) {
-        this.addAsset(moduleName, packName, { name: asset.name, img: asset.img, thumb: asset.thumb }, { title: moduleTitle, onePack: false, packs: {} }, { title: packTitle, path: packPath, assets: [] });
+    addScene(moduleName: string, moduleTitle: string, packName: string, packTitle: string, packPath: string, assetIndex: number, asset: SceneDataConstructorData) {
+        this.addAsset(moduleName, packName, CachedPack.assetToAssetName(assetIndex, asset), { name: asset.name, img: asset.img, thumb: asset.thumb }, new CachedModule(moduleTitle, false), new CachedPack(packTitle, packPath));
     }
 
     addShalowModule(moduleName: string) {
@@ -121,8 +250,8 @@ class AppDataClass {
         assert(gameModule != undefined, "Module not found: " + moduleId);
         const module = this.getOrCreateModule(moduleId, this.getShalowModuleStruct(moduleId));
         for(const pack of await packsFromModule(gameModule)) {
-            for(const scene of scenesFromPackContent(pack.content)) {
-                this.addScene(gameModule.id, gameModule.data.title, pack.name, pack.title, pack.path, scene);
+            for(const [sceneIndex, scene] of scenesFromPackContent(pack.content).entries()) {
+                this.addScene(gameModule.id, gameModule.data.title, pack.name, pack.title, pack.path, sceneIndex, scene);
             }
         }
         this.saveCache(updater);
@@ -170,13 +299,11 @@ class AppDataClass {
                         info.existing.assets.found += scenes.length;
                         info.message = `Found ${info.existing.assets.found} assets in ${pack.name}`;
                         updater?.update(...AppDataClass.formatForProgressViewer(info));
-                        let sceneIndex = 0;
-                        for(const scene of scenes) {
-                            this.addScene(module.id, module.data.title, pack.name, pack.title, pack.path, scene);
+                        for(const [sceneIndex, scene] of scenes.entries()) {
+                            this.addScene(module.id, module.data.title, pack.name, pack.title, pack.path, sceneIndex, scene);
                             info.existing.assets.finished++;
                             info.message = `Asset ${sceneIndex} finished`;
                             updater?.update(...AppDataClass.formatForProgressViewer(info));
-                            sceneIndex++;
                         }
                         info.existing.packs.finished++;
                         info.message = `Pack ${pack.name} finished`;
@@ -205,30 +332,29 @@ class AppDataClass {
     }
 
     clearCache() {
-        this.assetCollection = {};
+        this.assetCollection.clear();
     }
 
     moduleCount() {
-        return Object.keys(this.assetCollection).length;
+        return this.assetCollection.moduleCount();
     }
 
     packCount() {
-        return Object.values(this.assetCollection).reduce((prev, cur) => prev + Object.keys(cur!.packs).length, 0);
+        return this.assetCollection.packCount();
     }
 
     assetCount() {
-        return Object.values(this.assetCollection).reduce((prev, cur) => prev + Object.values(cur!.packs).reduce((p, c) => p + c!.assets.length, 0), 0);
+        return this.assetCollection.assetCount();
     }
 
     * assetGenerator() {
-        const moduleEntries = Object.entries(this.assetCollection);
-        for(const [moduleId, module] of moduleEntries) {
-            const packEntries = Object.entries(module!.packs);
+        for(const { moduleName, module } of this.assetCollection.moduleGenerator()) {
             let packIndex: number = 0;
-            for(const [packId, pack] of packEntries) {
-                for(const [assetIndex, asset] of pack!.assets.entries()) {
-                    log("lastPack gen", "len", packEntries.length, "index", packIndex);
-                    yield { moduleId, module, packId, pack, assetIndex, asset, lastPack: (packEntries.length - 1) == packIndex, lastAsset: (pack!.assets.length - 1) == assetIndex };
+            for(const { packName, pack } of module.packGenerator()) {
+                let assetIndex = 0;
+                for(const { assetName, asset } of pack.assetGenerator()) {
+                    yield { moduleName, module, packName, pack, assetName, asset, lastPack: (module.packCount() - 1) == packIndex, lastAsset: (pack.assetCount() - 1) == assetIndex };
+                    assetIndex++;
                 }
                 packIndex++;
             }
@@ -262,12 +388,12 @@ class AppDataClass {
             },
         };
 
-        for(const { moduleId, module, packId, pack, assetIndex, asset, lastPack, lastAsset } of this.assetGenerator()) {
+        for(const { moduleName, module, packName, pack, assetName, asset, lastPack, lastAsset } of this.assetGenerator()) {
             info.message = null;
             if(asset.thumb && asset.thumb.startsWith("data:")) {
                 const dataUrl = asset.thumb;
                 let ext: string | null = null;
-                const fileNameWithoutExt = `${moduleId}.${packId}.${assetIndex}`;
+                const fileNameWithoutExt = `${moduleName}.${packName}.${assetName}`;
                 if(asset.thumb.startsWith("data:image/png")) {
                     ext = "png";
                 }
@@ -299,12 +425,12 @@ class AppDataClass {
             log("lastPack", lastPack);
             if(lastAsset) {
                 info.existing.packs.finished++;
-                info.message = `Finished thumbs for pack ${packId}`;
+                info.message = `Finished thumbs for pack ${packName}`;
                 progressViewer?.update(...AppDataClass.formatForProgressViewer(info));
             }
             if(lastPack && lastAsset) {
                 info.existing.modules.finished++;
-                info.message = `Finished thumbs for module ${moduleId}`;
+                info.message = `Finished thumbs for module ${moduleName}`;
                 progressViewer?.update(...AppDataClass.formatForProgressViewer(info));
             }
         }
@@ -407,7 +533,7 @@ Hooks.once('init', async function() {
 });
 
 class AssetLister extends FormApplication<FormApplicationOptions, AppData, {}> {
-    private currentAsset: null | { moduleName: string, packName: string, assetIndex: number } = null;
+    private currentAsset: null | { moduleName: string, packName: string, assetName: string } = null;
 
     constructor(private data: AppDataClass) {
         super({}, {
@@ -431,7 +557,7 @@ class AssetLister extends FormApplication<FormApplicationOptions, AppData, {}> {
     }
 
     getData(): AppData {
-        return { assetCollection: this.data.getAssetCollection() };
+        return this.data.getAssetCollection();
     }
 
     private async onReIndex() {
@@ -452,7 +578,7 @@ class AssetLister extends FormApplication<FormApplicationOptions, AppData, {}> {
         assert(pack != undefined);
         const rawPack = await getPackContent(this.currentAsset.moduleName, pack.path);
 
-        const fullAsset = sceneFromPackContent(rawPack, this.currentAsset.assetIndex);
+        const fullAsset = sceneFromPackContent(rawPack, CachedPack.assetNameToAssetIndex(this.currentAsset.assetName));
         assert(fullAsset != undefined);
 
         let newScene = await Scene.create(fullAsset);
@@ -467,9 +593,7 @@ class AssetLister extends FormApplication<FormApplicationOptions, AppData, {}> {
         assert(assetElement.dataset.moduleName != undefined);
         assert(assetElement.dataset.packName != undefined);
         assert(assetElement.dataset.assetName != undefined);
-        assert(assetElement.dataset.assetIndex != undefined);
-        const assetIndex = parseInt(assetElement.dataset.assetIndex, 10);
-        const asset = this.data.getAsset(assetElement.dataset.moduleName, assetElement.dataset.packName, assetIndex);
+        const asset = this.data.getAsset(assetElement.dataset.moduleName, assetElement.dataset.packName, assetElement.dataset.assetName);
         const container = document.createElement("div");
         if(asset != undefined) {
             container.innerHTML = `<div>${assetElement.dataset.moduleName}.${assetElement.dataset.packName}/${assetElement.dataset.assetName}</div><div><img src="${asset.img}" /></div>`;
@@ -478,7 +602,7 @@ class AssetLister extends FormApplication<FormApplicationOptions, AppData, {}> {
             container.innerHTML = `<div>${assetElement.dataset.moduleName}.${assetElement.dataset.packName}/${assetElement.dataset.assetName}</div><div>Could not find image.</div>`;
         }
         win.querySelector(".panel .asset-view")!.replaceChildren(container);
-        this.currentAsset = { moduleName: assetElement.dataset.moduleName, packName: assetElement.dataset.packName, assetIndex: assetIndex };
+        this.currentAsset = { moduleName: assetElement.dataset.moduleName, packName: assetElement.dataset.packName, assetName: assetElement.dataset.assetName };
     }
 
     private async onRefreshModule(btn: HTMLElement) {
@@ -698,17 +822,14 @@ class ModuleSelector extends FormApplication<FormApplicationOptions, { existingM
             let packs: [packName: string, pack: PackInCache | undefined][]; // TODO we should be able to remove undefined here
             if(module === undefined) {
                 module = await this.appData.reindexModule(moduleName, pv);
-                packs = Object.entries(module.packs);
             }
             else {
-                packs = Object.entries(module.packs);
-                if(packs.length === 0) {
+                if(module.packCount() === 0) {
                     module = await this.appData.reindexModule(moduleName, pv);
-                    packs = Object.entries(module.packs);
                 }
             }
 
-            let hasScene: boolean = packs.some(([k, v]) => v!.assets.length !== 0);
+            let hasScene: boolean = module.assetCount() !== 0;
             li.classList.remove("unkown-scene-status");
             li.classList.toggle("has-scene", hasScene);
             li.classList.toggle("no-scene", !hasScene);
