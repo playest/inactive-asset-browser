@@ -166,7 +166,7 @@ class CachedPack<Content> {
     }
 
     static assetToAssetName(assetIndex: number, asset: PartialBy<Asset, "img" | "thumb">) {
-        assert(asset.img != undefined, "need an img to compute the asset name");
+        assert(asset.img != undefined, `need an img to compute the asset name ${JSON.stringify(asset)}`);
         return `${assetIndex}.${asset.name}.${asset.img}`
     }
 
@@ -930,7 +930,7 @@ function scenesFromPackContent(content: string) {
             }
             */
             const o = JSON.parse(line) as SceneDataConstructorData;
-            if(o.name !== '#[CF_tempEntity]') {
+            if(o.name !== '#[CF_tempEntity]' && o.img != undefined) {
                 scenes.push(o);
                 assetCount++;
             }
