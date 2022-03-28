@@ -188,10 +188,10 @@ class AppDataClass {
             const plainModule: ModuleInCache = { title: m.module.title, onePack: m.module.getOnePack(), packs: {} };
             ret.assetCollection[m.moduleName] = plainModule;
             for(const p of m.module.packGenerator()) {
-                const plainPack: PackInCache = {title: p.pack.title, path: p.pack.path, assets: {}};
+                const plainPack: PackInCache = { title: p.pack.title, path: p.pack.path, assets: {} };
                 plainModule.packs[p.packName] = plainPack;
                 for(const a of p.pack.assetGenerator()) {
-                    const plainAsset: Asset = {name: a.asset.name, img: a.asset.img, thumb: a.asset.thumb};
+                    const plainAsset: Asset = { name: a.asset.name, img: a.asset.img, thumb: a.asset.thumb };
                     plainPack.assets[a.assetName] = plainAsset;
                 }
             }
@@ -202,7 +202,7 @@ class AppDataClass {
     getModule(moduleName: string) {
         return this.assetCollection.get(moduleName);
     }
-    
+
     getPack(moduleName: string, packName: string) {
         return this.assetCollection.get(moduleName)?.get(packName);
     }
