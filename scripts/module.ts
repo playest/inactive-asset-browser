@@ -1,5 +1,4 @@
-import { SceneData, SceneDataConstructorData, SceneDataProperties } from "@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/data/data.mjs/sceneData";
-import { isBase64Image } from "@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/data/validators.mjs";
+import { SceneDataConstructorData } from "@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/data/data.mjs/sceneData";
 import { ModuleData } from "@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/packages.mjs/moduleData";
 
 const MODULE_NAME = "inactive-asset-browser";
