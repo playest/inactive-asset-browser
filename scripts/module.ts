@@ -14,6 +14,10 @@ declare global {
     }
 }
 
+export function sanitizeFilename(fileName: string) {
+    return fileName.replace("'", "").replace(/[^a-z0-9]+/gi, " ").trim().replace(/\s+|-{2,}/g, "-").toLowerCase();
+}
+
 type PartialBy<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>
 
 interface Asset {
@@ -138,8 +142,8 @@ class ModulePackAssetMapping<Content> {
     }
 
     * assetGenerator(pack: PackInCache<Content>) {
-        for(const [assetName, asset] of Object.entries(pack.assets)) {
-            yield { assetName, asset };
+        for(const [assetKey, asset] of Object.entries(pack.assets)) {
+            yield { assetKey, asset };
         }
     }
 
@@ -148,8 +152,8 @@ class ModulePackAssetMapping<Content> {
             let packIndex: number = 0;
             for(const { packName, pack } of this.packGenerator(module)) {
                 let assetIndex = 0;
-                for(const { assetName, asset } of this.assetGenerator(pack)) {
-                    yield { moduleName, module, packName, pack, assetName, asset, lastPack: (Object.keys(module.packs).length - 1) == packIndex, lastAsset: (Object.keys(pack.assets).length - 1) == assetIndex };
+                for(const { assetKey, asset } of this.assetGenerator(pack)) {
+                    yield { moduleName, module, packName, pack, assetKey, asset, lastPack: (Object.keys(module.packs).length - 1) == packIndex, lastAsset: (Object.keys(pack.assets).length - 1) == assetIndex };
                     assetIndex++;
                 }
                 packIndex++;
@@ -166,7 +170,7 @@ class ModulePackAssetMapping<Content> {
     }
 
     serialize() {
-        return JSON.stringify(this.assetCollection);
+        return JSON.stringify(this.assetCollection, null, 1);
     }
 }
 
@@ -212,7 +216,6 @@ class AppDataClass {
                 this.addScene(gameModule.id, gameModule.data.title, pack.name, pack.title, pack.path, sceneIndex, scene);
             }
         }
-        this.saveCache(updater);
         return module; // TODO was this.assetCollection[moduleId], check that using module works
     }
 
@@ -320,12 +323,12 @@ class AppDataClass {
             },
         };
 
-        for(const { moduleName, module, packName, pack, assetName, asset, lastPack, lastAsset } of this.assetMapping.allAssetGenerator()) {
+        for(const { moduleName, module, packName, pack, assetKey, asset, lastPack, lastAsset } of this.assetMapping.allAssetGenerator()) {
             info.message = null;
             if(asset.thumb && asset.thumb.startsWith("data:")) {
                 const dataUrl = asset.thumb;
                 let ext: string | null = null;
-                const fileNameWithoutExt = `${moduleName}.${packName}.${assetName}`;
+                const fileNameWithoutExt = sanitizeFilename(`${moduleName}.${packName}.${asset.name}`);
                 if(asset.thumb.startsWith("data:image/png")) {
                     ext = "png";
                 }
@@ -376,7 +379,7 @@ class AppDataClass {
             log("Cannot create dir", MODULE_NAME, e);
         }
         await this.convertThumbs(progressViewer);
-        const blob = new Blob([JSON.stringify(this.assetMapping.serialize(), null, 1)], { type: 'application/json' });
+        const blob = new Blob([this.assetMapping.serialize()], { type: 'application/json' });
         const file = new File([blob], "cache.json", { type: 'application/json' });
         FilePicker.upload("data", MODULE_NAME, file, {});
     }
@@ -475,8 +478,9 @@ class AssetLister extends FormApplication<FormApplicationOptions, { assetCollect
         super({}, {
             resizable: true,
             scrollY: [".modules"],
-            width: 500,
-            height: Math.round(window.innerHeight / 2)
+            // TODO save last size in the config
+            width: 900,
+            height: 500,
         });
         log("creating window for", MODULE_NAME);
         this.data.loadCache().then(() => this.render(true));
@@ -503,6 +507,14 @@ class AssetLister extends FormApplication<FormApplicationOptions, { assetCollect
         log("Start rendering after indexing", new Date());
         await this._render();
         log("Finished rendering after indexing", new Date());
+    }
+
+    private onSave() {
+        this.data.saveCache(new ProgressViewer());
+    }
+
+    private onLoad() {
+        this.data.loadCache().then(() => this.render(true));
     }
 
     private async onAddScene() {
@@ -544,7 +556,10 @@ class AssetLister extends FormApplication<FormApplicationOptions, { assetCollect
     private async onRefreshModule(btn: HTMLElement) {
         const h1 = btn.closest("h1")!;
         log("refresh", h1);
-        await this.data.reindexModule(h1.dataset.moduleName!, new ProgressViewer());
+        // TODO use then to avoid await
+        const pv = new ProgressViewer();
+        await this.data.reindexModule(h1.dataset.moduleName!, pv);
+        this.data.saveCache(pv);
         this.render();
     }
 
@@ -553,6 +568,10 @@ class AssetLister extends FormApplication<FormApplicationOptions, { assetCollect
         const win = html[0];
         assert(win != undefined);
         win.querySelector(".re-index")!.addEventListener("click", () => this.onReIndex());
+
+        win.querySelector(".save")!.addEventListener("click", () => this.onSave());
+
+        win.querySelector(".load")!.addEventListener("click", () => this.onLoad());
 
         win.querySelector(".select-modules")!.addEventListener("click", () => showModuleSelectorWindow());
 
