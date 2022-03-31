@@ -26,6 +26,10 @@ interface Asset {
     thumb: string | null | undefined,
 }
 
+interface AssetMetadata {
+    keywords: string[]
+}
+
 interface PackInCache<Content> {
     title: string,
     path: string,
@@ -176,6 +180,7 @@ class ModulePackAssetMapping<Content> {
 
 class AppDataClass {
     public readonly assetMapping = new ModulePackAssetMapping<Asset>();
+    public readonly metadataMapping = new ModulePackAssetMapping<AssetMetadata>();
 
     constructor(private configManager: ConfigManager) { }
 
@@ -195,6 +200,10 @@ class AppDataClass {
 
     loadCache() {
         return fetch(`${MODULE_NAME}/cache.json`).then(s => s.json() as Promise<DataByModule<Asset>>).then(ac => this.assetMapping.load(ac)).catch();
+    }
+
+    loadMetadata() {
+        return fetch(`${MODULE_NAME}/metadata.json`).then(s => s.json() as Promise<DataByModule<AssetMetadata>>).then(ac => this.metadataMapping.load(ac)).catch();
     }
 
     private getShalowModuleStruct(moduleName: string) {
@@ -383,6 +392,18 @@ class AppDataClass {
         const file = new File([blob], "cache.json", { type: 'application/json' });
         FilePicker.upload("data", MODULE_NAME, file, {});
     }
+
+    async saveMetadata() {
+        try {
+            await FilePicker.createDirectory("data", MODULE_NAME);
+        }
+        catch(e) {
+            log("Cannot create dir", MODULE_NAME, e);
+        }
+        const blob = new Blob([this.metadataMapping.serialize()], { type: 'application/json' });
+        const file = new File([blob], "metadata.json", { type: 'application/json' });
+        FilePicker.upload("data", MODULE_NAME, file, {});
+    }
     
     getAssetCollection() {
         return this.assetMapping.getAssetCollection();
@@ -517,6 +538,14 @@ class AssetLister extends FormApplication<FormApplicationOptions, { assetCollect
         this.data.loadCache().then(() => this.render(true));
     }
 
+    private onSaveMetadata() {
+        this.data.saveMetadata();
+    }
+
+    private onLoadMetadata() {
+        this.data.loadMetadata();
+    }
+
     private async onAddScene() {
         log("adding", this.currentAsset);
 
@@ -540,17 +569,17 @@ class AssetLister extends FormApplication<FormApplicationOptions, { assetCollect
         log("asset click", assetElement);
         assert(assetElement.dataset.moduleName != undefined);
         assert(assetElement.dataset.packName != undefined);
-        assert(assetElement.dataset.assetName != undefined);
-        const asset = this.data.assetMapping.getAsset(assetElement.dataset.moduleName, assetElement.dataset.packName, assetElement.dataset.assetName);
+        assert(assetElement.dataset.assetKey != undefined);
+        const asset = this.data.assetMapping.getAsset(assetElement.dataset.moduleName, assetElement.dataset.packName, assetElement.dataset.assetKey);
         const container = document.createElement("div");
         if(asset != undefined) {
-            container.innerHTML = `<div>${assetElement.dataset.moduleName}.${assetElement.dataset.packName}/${assetElement.dataset.assetName}</div><div><img src="${asset.img}" /></div>`;
+            container.innerHTML = `<div>${assetElement.dataset.moduleName}.${assetElement.dataset.packName}/${assetElement.dataset.assetKey}</div><div><img src="${asset.img}" /></div>`;
         }
         else {
-            container.innerHTML = `<div>${assetElement.dataset.moduleName}.${assetElement.dataset.packName}/${assetElement.dataset.assetName}</div><div>Could not find image.</div>`;
+            container.innerHTML = `<div>${assetElement.dataset.moduleName}.${assetElement.dataset.packName}/${assetElement.dataset.assetKey}</div><div>Could not find image.</div>`;
         }
         win.querySelector(".panel .asset-view")!.replaceChildren(container);
-        this.currentAsset = { moduleName: assetElement.dataset.moduleName, packName: assetElement.dataset.packName, assetName: assetElement.dataset.assetName, assetIndex: parseInt(assetElement.dataset.assetIndex!, 10) };
+        this.currentAsset = { moduleName: assetElement.dataset.moduleName, packName: assetElement.dataset.packName, assetName: assetElement.dataset.assetKey, assetIndex: parseInt(assetElement.dataset.assetIndex!, 10) };
     }
 
     private async onRefreshModule(btn: HTMLElement) {
@@ -572,6 +601,10 @@ class AssetLister extends FormApplication<FormApplicationOptions, { assetCollect
         win.querySelector(".save")!.addEventListener("click", () => this.onSave());
 
         win.querySelector(".load")!.addEventListener("click", () => this.onLoad());
+
+        win.querySelector(".save-metadata")!.addEventListener("click", () => this.onSaveMetadata());
+
+        win.querySelector(".load-metadata")!.addEventListener("click", () => this.onLoadMetadata());
 
         win.querySelector(".select-modules")!.addEventListener("click", () => showModuleSelectorWindow());
 

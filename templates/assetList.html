@@ -19,10 +19,10 @@
                             <h2 data-module-name="{{moduleName}}" data-pack-name="{{packName}}" title="{{packName}}">{{pack.title}}</h2>
                         {{/if}}
                         <div class="assets">
-                            {{#each pack.assets}}
-                            <div class="asset" data-module-name="{{moduleName}}" data-pack-name="{{packName}}" data-asset-name="{{this.name}}" data-asset-index="{{@index}}">
-                                <div class="name">{{this.name}}</div>
-                                <img src="{{this.thumb}}" />
+                            {{#each pack.assets as |asset assetKey|}}
+                            <div class="asset" data-module-name="{{moduleName}}" data-pack-name="{{packName}}" data-asset-key="{{assetKey}}" data-asset-index="{{@index}}">
+                                <div class="name">{{asset.name}}</div>
+                                <img src="{{asset.thumb}}" />
                             </div>
                             {{/each}}
                         </div>
@@ -36,6 +36,8 @@
         <button class="re-index">Re-Index</button>
         <button class="save">Save to cache</button>
         <button class="load">Load from cache</button>
+        <button class="save-metadata">Save metadata</button>
+        <button class="load-metadata">Load metadata</button>
         <button class="select-modules">Select modules</button>
         <button class="add-scene">Add scene</button>
         <div class="keywords"">
