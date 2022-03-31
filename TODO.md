@@ -19,3 +19,4 @@
 - show count of selected modules
 - better progress bar on reIndex
 - put a border (or something) around the selected asset
+- manage preview that are from an mp4 file
