@@ -671,6 +671,7 @@ class AssetLister extends FormApplication<FormApplicationOptions, { assetCollect
     }
 
     protected _createSearchFilters(): SearchFilter[] {
+        const self = this;
         return [new SearchFilter({
             contentSelector: ".modules", inputSelector: ".filter", callback: function(event, typedText, rgx, parent) {
                 // TODO the type of the last parameter (parent) is wrong in the doc
@@ -681,8 +682,11 @@ class AssetLister extends FormApplication<FormApplicationOptions, { assetCollect
                 const parent2 = (parent as unknown as HTMLElement);
                 for(const assetElement of Array.from(parent2.querySelectorAll<HTMLElement>(".asset"))) {
                     const name = assetElement.querySelector(".name")!.textContent!;
+                    console.log("assetElement", assetElement);
+                    const keywords = self.data.getKeywords(assetElement.dataset.moduleName!, assetElement.dataset.packName!, assetElement.dataset.assetKey!);
                     const match = rgx.test(SearchFilter.cleanQuery(name));
-                    assetElement.style.display = match ? "" : "none";
+                    const matchKeywords = keywords.some(kw => rgx.test(kw));
+                    assetElement.style.display = (match || matchKeywords) ? "" : "none";
                 }
                 for(const packElement of Array.from(parent2.querySelectorAll<HTMLElement>(".pack"))) {
                     const notEmpty = Array.from(packElement.querySelectorAll<HTMLElement>(".asset")).some(e => e.style.display != "none");
