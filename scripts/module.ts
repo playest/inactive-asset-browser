@@ -682,7 +682,6 @@ class AssetLister extends FormApplication<FormApplicationOptions, { assetCollect
                 const parent2 = (parent as unknown as HTMLElement);
                 for(const assetElement of Array.from(parent2.querySelectorAll<HTMLElement>(".asset"))) {
                     const name = assetElement.querySelector(".name")!.textContent!;
-                    console.log("assetElement", assetElement);
                     const keywords = self.data.getKeywords(assetElement.dataset.moduleName!, assetElement.dataset.packName!, assetElement.dataset.assetKey!);
                     const match = rgx.test(SearchFilter.cleanQuery(name));
                     const matchKeywords = keywords.some(kw => rgx.test(kw));
