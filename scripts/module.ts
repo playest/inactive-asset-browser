@@ -106,6 +106,14 @@ class ModulePackAssetMapping<Content> {
         return maybeAsset;
     }
 
+    getModuleAndPackAndAsset(moduleName: string, packName: string, contentName: string) {
+        return {
+            module: this.getModule(moduleName),
+            pack: this.getPack(moduleName, packName),
+            asset: this.getAsset(moduleName, packName, contentName),
+        };
+    }
+
 
     moduleCount() {
         return Object.keys(this.assetCollection).length;
@@ -184,14 +192,39 @@ class AppDataClass {
 
     constructor(private configManager: ConfigManager) { }
 
-    addScene(moduleName: string, moduleTitle: string, packName: string, packTitle: string, packPath: string, assetIndex: number, asset: SceneDataConstructorData) {
+    addScene(moduleName: string, moduleTitle: string, packName: string, packTitle: string, packPath: string, asset: SceneDataConstructorData) {
         const asset2 = { name: asset.name, img: asset.img, thumb: asset.thumb };
         this.assetMapping.getPackOr(
-                moduleName,
-                packName,
-                () => { return { title: moduleTitle } },
-                () => { return { title: packTitle, path: packPath } }
-            ).assets[AppDataClass.assetToAssetKey(asset)] = asset2;
+            moduleName,
+            packName,
+            () => { return { title: moduleTitle } },
+            () => { return { title: packTitle, path: packPath } }
+        ).assets[AppDataClass.assetToAssetKey(asset)] = asset2;
+    }
+
+    addKeywords(moduleName: string, packName: string, assetKey: string, keywords: string[]) {
+        let metadata = this.metadataMapping.getAsset(
+            moduleName,
+            packName,
+            assetKey
+        );
+        if(metadata == undefined) {
+            // the asset does not exists in metadataMapping but it should be in assetMapping
+            const { module, pack, asset } = this.assetMapping.getModuleAndPackAndAsset(moduleName, packName, assetKey);
+            assert(module != undefined);
+            assert(pack != undefined);
+            assert(asset != undefined);
+            metadata = this.metadataMapping.getAssetOr(moduleName, packName, assetKey, () => { return { title: module.title } }, () => { return { path: pack.path, title: pack.title } }, () => { return { keywords: [] } });
+        }
+        metadata.keywords = keywords;
+    }
+
+    getKeywords(moduleName: string, packName: string, assetKey: string): string[] {
+        return this.metadataMapping.getAsset(
+            moduleName,
+            packName,
+            assetKey
+        )?.keywords ?? [];
     }
 
     addShalowModule(moduleName: string) {
@@ -222,7 +255,7 @@ class AppDataClass {
         const module = this.assetMapping.getModuleOr(moduleName, () => this.getShalowModuleStruct(moduleName));
         for(const pack of await packsFromModule(gameModule)) {
             for(const [sceneIndex, scene] of scenesFromPackContent(pack.content).entries()) {
-                this.addScene(gameModule.id, gameModule.data.title, pack.name, pack.title, pack.path, sceneIndex, scene);
+                this.addScene(gameModule.id, gameModule.data.title, pack.name, pack.title, pack.path, scene);
             }
         }
         return module; // TODO was this.assetCollection[moduleId], check that using module works
@@ -270,7 +303,7 @@ class AppDataClass {
                         info.message = `Found ${info.existing.assets.found} assets in ${pack.name}`;
                         updater?.update(...AppDataClass.formatForProgressViewer(info));
                         for(const [sceneIndex, scene] of scenes.entries()) {
-                            this.addScene(module.id, module.data.title, pack.name, pack.title, pack.path, sceneIndex, scene);
+                            this.addScene(module.id, module.data.title, pack.name, pack.title, pack.path, scene);
                             info.existing.assets.finished++;
                             info.message = `Asset ${sceneIndex} finished`;
                             updater?.update(...AppDataClass.formatForProgressViewer(info));
@@ -404,7 +437,7 @@ class AppDataClass {
         const file = new File([blob], "metadata.json", { type: 'application/json' });
         FilePicker.upload("data", MODULE_NAME, file, {});
     }
-    
+
     getAssetCollection() {
         return this.assetMapping.getAssetCollection();
     }
@@ -580,6 +613,8 @@ class AssetLister extends FormApplication<FormApplicationOptions, { assetCollect
         }
         win.querySelector(".panel .asset-view")!.replaceChildren(container);
         this.currentAsset = { moduleName: assetElement.dataset.moduleName, packName: assetElement.dataset.packName, assetName: assetElement.dataset.assetKey, assetIndex: parseInt(assetElement.dataset.assetIndex!, 10) };
+
+        win.querySelector<HTMLInputElement>(".keywords input")!.value = this.data.getKeywords(this.currentAsset.moduleName, this.currentAsset.packName, this.currentAsset.assetName).join(", ");
     }
 
     private async onRefreshModule(btn: HTMLElement) {
@@ -593,9 +628,11 @@ class AssetLister extends FormApplication<FormApplicationOptions, { assetCollect
     }
 
     activateListeners(html: JQuery<HTMLElement>) {
+        const self = this;
         super.activateListeners(html);
         const win = html[0];
         assert(win != undefined);
+
         win.querySelector(".re-index")!.addEventListener("click", () => this.onReIndex());
 
         win.querySelector(".save")!.addEventListener("click", () => this.onSave());
@@ -616,7 +653,13 @@ class AssetLister extends FormApplication<FormApplicationOptions, { assetCollect
 
         win.querySelector<HTMLInputElement>(".keywords input")!.addEventListener("input", function() {
             log("keywords changed", this.value);
+            self.onUpdateKeywords(this.value);
         });
+    }
+
+    private onUpdateKeywords(keywordField: string) {
+        assert(this.currentAsset != null);
+        this.data.addKeywords(this.currentAsset.moduleName, this.currentAsset.packName, this.currentAsset.assetName, keywordField.split(/, ?/));
     }
 
     async _updateObject(event: Event, formData: unknown) {
