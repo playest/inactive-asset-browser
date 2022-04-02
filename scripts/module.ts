@@ -1,5 +1,6 @@
 import { SceneDataConstructorData } from "@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/data/data.mjs/sceneData";
 import { ModuleData } from "@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/packages.mjs/moduleData";
+import { DebouncedTimer } from "./debouncedTimer.js";
 
 const MODULE_NAME = "inactive-asset-browser";
 const PATH_TO_ROOT_OF_MODULE = `modules/${MODULE_NAME}/`;
@@ -527,6 +528,7 @@ Hooks.once('init', async function() {
 
 class AssetLister extends FormApplication<FormApplicationOptions, { assetCollection: DataByModule<Asset> }, {}> {
     private currentAsset: null | { moduleName: string, packName: string, assetName: string, assetIndex: number } = null;
+    private saveTimer = new DebouncedTimer(() => this.data.saveMetadata());
 
     constructor(private data: AppDataClass) {
         super({}, {
@@ -537,6 +539,7 @@ class AssetLister extends FormApplication<FormApplicationOptions, { assetCollect
             height: 500,
         });
         log("creating window for", MODULE_NAME);
+        this.data.loadMetadata();
         this.data.loadCache().then(() => this.render(true));
     }
 
@@ -624,6 +627,7 @@ class AssetLister extends FormApplication<FormApplicationOptions, { assetCollect
         const pv = new ProgressViewer();
         await this.data.reindexModule(h1.dataset.moduleName!, pv);
         this.data.saveCache(pv);
+        this.data.saveMetadata();
         this.render();
     }
 
@@ -652,7 +656,6 @@ class AssetLister extends FormApplication<FormApplicationOptions, { assetCollect
         win.querySelectorAll<HTMLElement>(".refresh-module")!.forEach(btn => btn.addEventListener("click", () => this.onRefreshModule(btn)));
 
         win.querySelector<HTMLInputElement>(".keywords input")!.addEventListener("input", function() {
-            log("keywords changed", this.value);
             self.onUpdateKeywords(this.value);
         });
     }
@@ -660,6 +663,7 @@ class AssetLister extends FormApplication<FormApplicationOptions, { assetCollect
     private onUpdateKeywords(keywordField: string) {
         assert(this.currentAsset != null);
         this.data.addKeywords(this.currentAsset.moduleName, this.currentAsset.packName, this.currentAsset.assetName, keywordField.split(/, ?/));
+        this.saveTimer.reset();
     }
 
     async _updateObject(event: Event, formData: unknown) {
